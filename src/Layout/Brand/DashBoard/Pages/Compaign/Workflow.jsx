@@ -44,14 +44,9 @@ const Workflow = () => {
           }
         });
   
-        if (contractsResponse.data.message === "No contracts found for this deal ID.") {
-          setInfluencersOptions(options);
-          return; // Exit the function early
-        }
-  
         const influencerStatusMap = new Map();
-  
-        // Build a map to track all statuses for each influencer
+
+        // Build a map to track all statuses for each influencer in contracts
         contractsResponse.data.contracts.forEach(contract => {
           const { influencerID, status } = contract;
           if (!influencerStatusMap.has(influencerID)) {
@@ -59,13 +54,14 @@ const Workflow = () => {
           }
           influencerStatusMap.get(influencerID).push(status);
         });
-  
-        // Filter influencers who have all contracts approved
-        const uniqueInfluencerIDs = [...influencerStatusMap.entries()]
-          .filter(([id, statuses]) => statuses.every(status => status === "Approved"))
-          .map(([id]) => id);
-  
-        const filteredOptions = options.filter(option => uniqueInfluencerIDs.includes(option.value));
+
+        // Filter influencers:
+        // 1. Include those with all contracts approved
+        // 2. Include those with no contracts
+        const filteredOptions = options.filter(option => {
+          const statuses = influencerStatusMap.get(option.value);
+          return !statuses || statuses.every(status => status === "Approved");
+        });
   
         // Set the filtered options in state
         setInfluencersOptions(filteredOptions);
@@ -75,7 +71,7 @@ const Workflow = () => {
     };
   
     fetchInfluencerNetwork();
-  }, [campaignData]);  
+  }, [campaignData]);
 
   let rejectedCount = 0;
   let acceptedCount = 0;
