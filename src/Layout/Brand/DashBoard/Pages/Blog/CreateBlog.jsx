@@ -41,8 +41,25 @@ const CreateBlog = () => {
 
   const handlePublish = async () => {
     const { title, body, blogMainImg } = blogData;
+
+    // Validation checks
     if (!title || !body) {
       setErrorMessage('Title and body are required');
+      return;
+    }
+
+    if (title.length < 15 || title.length > 50) {
+      setErrorMessage('Title must be between 15 and 50 characters');
+      return;
+    }
+
+    if (body.length < 300 || body.length > 1000) {
+      setErrorMessage('Body must be between 300 and 1000 characters');
+      return;
+    }
+
+    if (!blogMainImg) {
+      setErrorMessage('Please upload an image for the blog post');
       return;
     }
 
@@ -51,8 +68,10 @@ const CreateBlog = () => {
       const formData = new FormData();
       formData.append('title', title);
       formData.append('body', body);
+
+      // Only append the image if it's not empty
       if (blogMainImg) {
-        formData.append('blogMainImg', blogMainImg); // Only append if there's an image
+        formData.append('blogMainImg', blogMainImg);
       }
 
       const response = await axios.post('/Brand/addBlog', formData, {

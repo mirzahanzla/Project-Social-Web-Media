@@ -57,6 +57,7 @@ const Blog = () => {
               posts.map((post) => (
                 <BlogPost
                   key={post._id}
+                  blogID={post._id}
                   Title={post.title}
                   Body={post.body}
                   Time={new Date(post.postedAt).toLocaleTimeString()}
@@ -71,12 +72,38 @@ const Blog = () => {
   );
 };
 
-const BlogPost = ({ Title, Body, Time, Image }) => {
+const BlogPost = ({ Title, Body, Time, Image, blogID }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false); // State to show confirmation dialog
+  const [loading, setLoading] = useState(false); // State to show loading spinner
   const truncatedBody = Body.length > 250 ? Body.substring(0, 250) + '...' : Body;
+  const navigate = useNavigate();
+
+  // Handle edit action
+  const handleEdit = () => {
+    navigate(`/Blog/EditBlog/${blogID}`, {
+      state: { title: Title, body: Body, image: Image, blogID: blogID }
+    });
+  };
+
+  const handleDelete = async () => {
+    setShowConfirm(false); // Hide confirmation dialog
+    setLoading(true); // Show loading spinner
+    try {
+      await axios.delete(`/Brand/deletePost/${blogID}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      window.location.reload(); // Refresh the page after deletion
+    } catch (error) {
+      console.error('Error deleting blog:', error);
+    } finally {
+      setLoading(false); // Hide loading spinner
+    }
+  };
 
   return (
-    <div className="bg-white mx-auto sm:w-[500px] mdm:w-[600px] lg:w-[700px] rounded-xl p-2 text-[9px] xs:text-[10px] sm:text-[13px] md:text-[11px]">
+    <div className="bg-white mx-auto sm:w-[500px] mdm:w-[600px] lg:w-[700px] rounded-xl p-2 text-[9px] xs:text-[10px] sm:text-[13px] md:text-[11px] relative">
       <div className="p-2 grid grid-cols-12">
         <div className="col-span-9">
           <p className="text-[12px] mdm:text-lg lato-bold">{Title}</p>
@@ -89,11 +116,35 @@ const BlogPost = ({ Title, Body, Time, Image }) => {
               >
                 {isExpanded ? 'Read less' : 'Read more'}
               </span>
-            )}</p>
+            )}
+          </p>
           <div className="flex justify-between mt-2">
             <p className="text-black/50">{Time}</p>
-            <div>
-              <img src="/Svg/More.svg" alt="More" />
+            <div className="relative">
+              <img
+                src="/Svg/More.svg"
+                alt="More"
+                className="cursor-pointer"
+                onClick={() => setShowMenu(!showMenu)}
+              />
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-28 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                  <ul>
+                    <li
+                      className="p-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={handleEdit}
+                    >
+                      Edit
+                    </li>
+                    <li
+                      className="p-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => setShowConfirm(true)} // Show confirmation dialog
+                    >
+                      Delete
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -103,6 +154,38 @@ const BlogPost = ({ Title, Body, Time, Image }) => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Pop-up */}
+      {showConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-white p-5 rounded-lg shadow-lg">
+            <p>Are you sure you want to delete this blog?</p>
+            <div className="flex justify-end mt-3">
+              <button
+                className="px-4 py-2 bg-red-500 text-white rounded-md mr-2"
+                onClick={handleDelete}
+              >
+                Yes
+              </button>
+              <button
+                className="px-4 py-2 bg-gray-300 rounded-md"
+                onClick={() => setShowConfirm(false)} // Hide confirmation dialog
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Spinner */}
+      {loading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="spinner-border text-white" role="status">
+            <span className="sr-only">Loading...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -205,68 +205,76 @@ const OverView = () => {
 
   useEffect(() => {
     const fetchContracts = async () => {
-        try {
-            const response = await axios.get('/Brand/checkDealsWithContracts', {
-                headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
-            });
+      try {
+          const response = await axios.get('/Brand/checkDealsWithContracts', {
+              headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+          });
 
-            // Check if response data is an array
-            const contracts = Array.isArray(response.data.contracts) ? response.data.contracts : [];
-            setBrandContracts(contracts);
-            let currentMonthEarnings = 0;
-            let previousMonthEarnings = 0;
+          // Check if response data is an array
+          const contracts = Array.isArray(response.data.contracts) ? response.data.contracts : [];
+          setBrandContracts(contracts);
+          let currentMonthEarnings = 0;
+          let previousMonthEarnings = 0;
 
-            // Get current month in 'YYYY-MM' format
-            const currentMonth = new Date().toISOString().slice(0, 7);
+          // Get current month in 'YYYY-MM' format
+          const currentMonth = new Date().toISOString().slice(0, 7);
 
-            // Get previous month in 'YYYY-MM' format
-            const previousMonth = new Date();
-            previousMonth.setMonth(previousMonth.getMonth() - 1);
-            const previousMonthStr = previousMonth.toISOString().slice(0, 7);
+          // Get previous month in 'YYYY-MM' format
+          const previousMonth = new Date();
+          previousMonth.setMonth(previousMonth.getMonth() - 1);
+          const previousMonthStr = previousMonth.toISOString().slice(0, 7);
 
-            contracts.forEach(contract => {
-                if (contract.milestones && Array.isArray(contract.milestones)) {
-                    contract.milestones.forEach(milestone => {
-                        const milestoneMonthYear = milestone.startedDate.slice(0, 7); // Extract 'YYYY-MM' from deadline
+          contracts.forEach(contract => {
+              if (contract.milestones && Array.isArray(contract.milestones)) {
+                  contract.milestones.forEach(milestone => {
+                      const milestoneMonthYear = milestone.startedDate.slice(0, 7); // Extract 'YYYY-MM' from deadline
 
-                        // Check if the milestone is in the current month
-                        if (milestoneMonthYear === currentMonth) {
-                            currentMonthEarnings += milestone.budget || 0;
-                        }
+                      // Check if the milestone is in the current month
+                      if (milestoneMonthYear === currentMonth) {
+                          currentMonthEarnings += milestone.budget || 0;
+                      }
 
-                        // Check if the milestone is in the previous month
-                        if (milestoneMonthYear === previousMonthStr) {
-                            previousMonthEarnings += milestone.budget || 0;
-                        }
-                    });
-                }
-            });
-
-            // Calculate the percentage change
-            const changePercentage = calculateChange(previousMonthEarnings, currentMonthEarnings);
-
-            setBudgetSpent({
-                currentMonth: currentMonthEarnings,
-                previousMonth: previousMonthEarnings,
-                change: changePercentage
-            });
-            } catch (err) {
-                if (err.response && err.response.data && err.response.data.message === "Brand not found") {
-                  setBrandContracts([]);  // No contracts, but not an error
-                  setBudgetSpent({
-                      currentMonth: 0,
-                      previousMonth: 0,
-                      change: 0
+                      // Check if the milestone is in the previous month
+                      if (milestoneMonthYear === previousMonthStr) {
+                          previousMonthEarnings += milestone.budget || 0;
+                      }
                   });
-                } else {
-                    setError('Error fetching contracts');
-                    console.error('Error fetching contracts:', err);
-                }
-            }
-        };
+              }
+          });
 
-        fetchContracts();
-      }, []);
+          // Calculate the percentage change
+          const changePercentage = calculateChange(previousMonthEarnings, currentMonthEarnings);
+
+          setBudgetSpent({
+              currentMonth: currentMonthEarnings,
+              previousMonth: previousMonthEarnings,
+              change: changePercentage
+          });
+          } catch (err) {
+              if (err.response && err.response.data && err.response.data.message === "Brand not found") {
+                setBrandContracts([]);  // No contracts, but not an error
+                setBudgetSpent({
+                    currentMonth: 0,
+                    previousMonth: 0,
+                    change: 0
+                });
+              }
+              if (err.response && err.response.data && err.response.data.message === "No deals found for this brand") {
+                setBrandContracts([]);  // No contracts, but not an error
+                setBudgetSpent({
+                    currentMonth: 0,
+                    previousMonth: 0,
+                    change: 0
+                });
+              } else {
+                  setError('Error fetching contracts');
+                  console.error('Error fetching contracts:', err);
+              }
+          }
+      };
+
+      fetchContracts();
+    }, []);
 
 // Function to calculate the percentage change
 const calculateChange = (prevValue, currentValue) => {

@@ -6,16 +6,16 @@ const Predict = () => {
   const [inputData, setInputData] = useState({
     follower_count: '',
     Engagement_Rate: '',
-    minReach: 1000, 
-    maxReach: 500000,
+    minReach: 500, 
+    maxReach: 50000,
   });
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showInfluencerProfile, setShowInfluencerProfile] = useState(false);
 
-  const minLimit = 10000;
-  const maxLimit = 1000000;
+  const minLimit = 500;
+  const maxLimit = 250000;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,15 +26,50 @@ const Predict = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    const updatedData = {
-      ...inputData,
-      minReach: inputData.minReach, // Ensure minReach is used
-      maxReach: inputData.maxReach, // Ensure maxReach is used
-    };
-
+  
+    // Reset previous prediction and profile data
+    setPrediction(null);
+    setShowInfluencerProfile(false);
+  
+    // Validate inputs before submitting
+    const { follower_count, Engagement_Rate, minReach, maxReach } = inputData;
+  
+    // Follower count validation (between 200K and 20M)
+    if (follower_count < 150000 || follower_count > 20000000 || !Number.isInteger(Number(follower_count))) {
+      setError('Follower count must be between 150K and 20M and must be an integer.');
+      setLoading(false);
+      return;
+    }
+  
+    // Engagement rate validation (between 1.5 and 10.0)
+    if (Engagement_Rate < 1.5 || Engagement_Rate > 10.0 || isNaN(Engagement_Rate)) {
+      setError('Engagement rate must be between 1.5 and 10.0.');
+      setLoading(false);
+      return;
+    }
+  
+    // Min reach validation (between 500 and 20K)
+    if (minReach < 500 || minReach > 20000) {
+      setError('Min reach must be between 500 and 20K.');
+      setLoading(false);
+      return;
+    }
+  
+    // Max reach validation (between 1K and 250K, and min reach < max reach)
+    if (maxReach < 1000 || maxReach > 250000) {
+      setError('Max reach must be between 1K and 250K.');
+      setLoading(false);
+      return;
+    }
+  
+    if (minReach >= maxReach) {
+      setError('Min reach must be less than max reach.');
+      setLoading(false);
+      return;
+    }
+  
     try {
-      const response = await axios.post('http://127.0.0.1:5000/predict', updatedData);
+      const response = await axios.post('http://127.0.0.1:5000/predict', inputData);
       setPrediction(response.data.prediction);
     } catch (err) {
       setError('Error fetching prediction data');
@@ -42,16 +77,29 @@ const Predict = () => {
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handleRangeChange = (e, type) => {
     const value = Number(e.target.value);
-    if (type === 'min' && value < inputData.maxReach) {
-      setInputData((prevData) => ({ ...prevData, minReach: value })); // Update minReach
+  
+    // If changing minReach, make sure it doesn't exceed 20,000 or surpass maxReach
+    if (type === 'min') {
+      if (value > 20000) {
+        setInputData((prevData) => ({ ...prevData, minReach: 20000 }));
+      } else if (value >= inputData.maxReach) {
+        setInputData((prevData) => ({ ...prevData, minReach: inputData.maxReach - 1 }));
+      } else {
+        setInputData((prevData) => ({ ...prevData, minReach: value }));
+      }
     } else if (type === 'max' && value > inputData.minReach) {
-      setInputData((prevData) => ({ ...prevData, maxReach: value })); // Update maxReach
+      setInputData((prevData) => ({ ...prevData, maxReach: value }));
     }
-  };
+  
+    // Add the check to ensure minReach is always below maxReach
+    if (inputData.minReach >= inputData.maxReach) {
+      setInputData((prevData) => ({ ...prevData, minReach: inputData.maxReach - 1 }));
+    }
+  };  
 
   const formatNumberForDisplay = (num) => {
     if (num >= 1000000) {
@@ -66,7 +114,8 @@ const Predict = () => {
   return (
     <>
       {showInfluencerProfile ? (
-        <InfluencerProfile setShowInfluencerProfile={setShowInfluencerProfile} userName={prediction[0]} />
+        <InfluencerProfile setShowInfluencerProfile={setShowInfluencerProfile}
+        userName={prediction[0]} />
       ) : (
         <div className="flex flex-col items-center justify-center p-10 bg-gray-50">
           <h1 className="text-4xl font-bold mb-5 text-center">Predict Engagement Rates</h1>

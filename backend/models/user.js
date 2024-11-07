@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   userType: { type: String, required: true }, // Could be 'brand', 'influencer', etc.
   status: { type: String, default: "incomplete" },
+  verified: { type: Boolean },
   earnings: { type: Number },
 
   // Common Fields

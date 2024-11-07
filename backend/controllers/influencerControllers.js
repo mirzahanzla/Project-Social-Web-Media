@@ -2,14 +2,14 @@ import User from '../models/user.js';
 import { storage } from '../config/firebase.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import mongoose from 'mongoose';
+import Brand from '../models/brands.js'; // Assuming you have a Brand model
 
 export const saveInfluencerIn = async (req, res) => {
   const { userId, position, companySize, influencersWorkedWith, brandName, website, category } = req.body;
   const logo = req.file;
 
-   // Validate that the userId is a valid ObjectId
-
-   if (!mongoose.Types.ObjectId.isValid(userId)) {
+  // Validate that the userId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res.status(400).json({ message: 'Invalid user ID.' });
   }
 
@@ -17,6 +17,8 @@ export const saveInfluencerIn = async (req, res) => {
     return res.status(400).json({ message: 'No logo file uploaded.' });
   }
 
+  const session = await mongoose.startSession(); // Start a session for the transaction
+  session.startTransaction();
 
   try {
     // Validate that the uploaded file is an image
@@ -30,6 +32,12 @@ export const saveInfluencerIn = async (req, res) => {
     if (logo.size > maxSize) {
       console.error('File size exceeds limit. File size:', logo.size);
       return res.status(400).json({ message: 'File size exceeds the 5MB limit.' });
+    }
+
+    // Check if brandName is unique
+    const existingBrand = await User.findOne({ fullName: brandName }).session(session); // Ensure it runs in the transaction
+    if (existingBrand) {
+      return res.status(400).json({ message: 'Brand name already exists.' });
     }
 
     // Upload the logo to Firebase Storage
@@ -50,17 +58,37 @@ export const saveInfluencerIn = async (req, res) => {
         category,            // Array of categories
         status: 'complete'   // Update status to 'complete'
       },
-      { new: true } // Return the updated document
+      { new: true, session } // Use the session for the update
     );
 
     if (updatedUser) {
+      // Find or create the brand
+      let brand = await Brand.findOne({ brandName: updatedUser.fullName }).session(session); // Ensure it runs in the transaction
+      if (!brand) {
+        // Create a new brand if not found
+        brand = new Brand({
+          brandID: updatedUser._id,
+          brandName: updatedUser.fullName,
+          brandImage: updatedUser.photo,
+        });
+        await brand.save({ session }); // Save the brand in the transaction
+      }
+
+      // Commit the transaction if everything is successful
+      await session.commitTransaction();
+      session.endSession(); // End the session
+
       res.status(200).json({ message: 'User information added and status updated successfully', user: updatedUser });
     } else {
       console.error('User not found:', userId);
       res.status(404).json({ message: 'User not found' });
+      await session.abortTransaction(); // Rollback transaction if user not found
+      session.endSession();
     }
   } catch (error) {
     console.error('Save influencer info error:', error.message);
+    await session.abortTransaction(); // Rollback transaction in case of an error
+    session.endSession();
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

@@ -50,7 +50,6 @@ const Response = () => {
     fetchDeals();
   }, [success]);
 
-
   const handleDealSuccess = () => {
     setSuccess(true); // Set success to true upon successful operation
     setTimeout(() => setSuccess(false), 1000); // Clear success message after 1 seconds

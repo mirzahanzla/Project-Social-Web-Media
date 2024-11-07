@@ -58,12 +58,9 @@ const Brands = () => {
                 <p className="lato-regular mt-12 ml-7">My Deals Report</p>
                 <div className="rounded-xl lato-regular text-[10px] mdm:text-base pt-3 mt-5 scroll-container">
                   <div className="p-1 rounded-lg">
-                    <div className="w-full grid grid-cols-12 gap-x-16 auto-rows-fr text-center border-b-2 pt-5 pb-3 border-t-2">
+                    <div className="w-full grid grid-cols-12 gap-x-8 gap-y-4 auto-rows-fr text-center border-b-2 pt-5 pb-3 border-t-2">
                       <div className="col-span-3 text-center">
                         <p className="lato-bold text-lg">Brand</p>
-                      </div>
-                      <div className="col-span-2 text-center">
-                        <p className="lato-bold text-lg">Platform</p>
                       </div>
                       <div className="col-span-1">
                         <p className="lato-bold text-lg">%ER</p>
@@ -74,7 +71,7 @@ const Brands = () => {
                       <div className="col-span-1">
                         <p className="lato-bold text-lg">Category</p>
                       </div>
-                      <div>
+                      <div className="col-span-1">
                         <p className="lato-bold text-lg">Status</p>
                       </div>
                     </div>
@@ -83,7 +80,6 @@ const Brands = () => {
                         key={index}
                         name={deal.brandName}
                         img={deal.dealImage}
-                        followers={formatFollowers(deal.followers)}
                         Er={deal.engagement_Rate}
                         Budget={deal.budget}
                         category={deal.category}
@@ -101,32 +97,16 @@ const Brands = () => {
   );
 };
 
-const formatFollowers = (count) => {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1) + 'M';
-  } else if (count >= 1000) {
-    return (count / 1000).toFixed(1) + 'k';
-  } else {
-    return count;
-  }
-};
-
-const TableRows = ({ name, img, followers, Er, Budget, category, Status }) => {
+const TableRows = ({ name, img, Er, Budget, category, Status }) => {
   return (
-    <div className="w-full grid grid-cols-12 auto-rows-fr text-center mt-5 gap-x-16 border-b-2 pb-2 IsBorder">
+    <div className="w-full grid grid-cols-12 auto-rows-fr text-center mt-5 gap-x-8 gap-y-4 border-b-2 pb-2 IsBorder">
       <div className="col-span-3 text-center">
         <div className="flex items-center justify-center gap-x-3">
           <img className='size-[35px] Avatar' src={img} alt={name} />
           <p>{name}</p>
         </div>
       </div>
-      <div className="col-span-2 text-center">
-        <div className="flex items-center">
-          <img className='size-[35px] p-1 Avatar' src={`/Images/Instagram.svg`} alt="Instagram" />
-          <p>{followers}</p>
-        </div>
-      </div>
-      <div className="col-span-1">
+      <div className="col-span-1 text-center">
         <p className="p-1">{Er}%</p>
       </div>
       <div className="col-span-2">

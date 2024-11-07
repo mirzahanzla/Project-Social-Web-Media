@@ -7,29 +7,51 @@ const Deals = () => {
   const [ShowDeal, setShowDeal] = useState(0);
   const [brandData, setBrandData] = useState([]);
   const [success, setSuccess] = useState(false);
-
   const [filteredData, setFilteredData] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('Category');
   const [selectedbudget, setSelectedbudget] = useState('budget');
-  const navItems = ['Category', 'Watches', 'Crypto', 'Clothing'];
-  const budget = ['budget', '0-10$', '10-50$', '50-100$', '100$ +'];
   const [showRequestDeal, setShowRequestDeal] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState(null);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState(''); // State for verification message
+
+  const navItems = ['Category', 'Watches', 'Crypto', 'Clothing'];
+  const budget = ['budget', '0-10$', '10-50$', '50-100$', '100$ +'];
 
   const fetchDeals = () => {
-    setLoading(true); // Start loading before fetching
-    fetch('/api/deals')
-      .then(response => response.json())
+    setLoading(true);
+    setVerificationMessage(''); // Reset message before each fetch
+
+    const authToken = localStorage.getItem('authToken');
+
+    fetch('/api/deals', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => {
+        if (response.status === 403) {
+          // Set verification message if 403 status is returned
+          setVerificationMessage('Please verify your profile first to view deals');
+          return null; // Exit early if forbidden
+        }
+        if (!response.ok) {
+          throw new Error('Failed to fetch deals');
+        }
+        return response.json();
+      })
       .then(data => {
-        setBrandData(data);
-        setFilteredData(data); // Initialize filteredData with all deals
+        if (data) {
+          setBrandData(data);
+          setFilteredData(data); // Initialize filteredData with all deals
+        }
       })
       .catch(error => console.error('Error fetching deals:', error))
-      .finally(() => setLoading(false)); // Stop loading after fetching or error
+      .finally(() => setLoading(false));
   };
 
-  // Fetch deals when the component mounts or on "success" change
   useEffect(() => {
     fetchDeals();
   }, [success]);
@@ -37,16 +59,14 @@ const Deals = () => {
   useEffect(() => {
     const filterData = () => {
       let filtered = brandData;
-  
-      // Filter by category
+
       if (selectedCategory !== 'Category') {
         filtered = filtered.map(brand => ({
           ...brand,
           deals: brand.deals.filter(deal => deal.category === selectedCategory)
         })).filter(brand => brand.deals.length > 0);
       }
-  
-      // Filter by budget
+
       if (selectedbudget !== 'budget') {
         const budgetRanges = {
           '0-10$': [0, 10],
@@ -54,25 +74,25 @@ const Deals = () => {
           '50-100$': [50, 100],
           '100$ +': [100, Infinity]
         };
-  
         const [minbudget, maxbudget] = budgetRanges[selectedbudget] || [0, Infinity];
-  
+
         filtered = filtered.map(brand => ({
           ...brand,
           deals: brand.deals.filter(deal => deal.budget >= minbudget && deal.budget <= maxbudget)
         })).filter(brand => brand.deals.length > 0);
       }
-  
+
       setFilteredData(filtered);
     };
-  
+
     filterData();
-  }, [selectedCategory, selectedbudget,brandData]);  
+  }, [selectedCategory, selectedbudget, brandData]);
 
   const handleRequestDeal = (dealID) => {
     setSelectedDeal(dealID);
     setShowRequestDeal(true);
-  };  
+  };
+
   return (
     <>
       {showRequestDeal && selectedDeal && (
@@ -80,22 +100,20 @@ const Deals = () => {
           dealID={selectedDeal}
           onClose={() => {
             setShowRequestDeal(false);
-            setSuccess(prev => !prev); // Toggle success to trigger re-fetch
+            setSuccess(prev => !prev);
           }}
         />
       )}
 
       {ShowDeal ? (
-        <>
-          <ShowDealPost
-            setShowDeal={setShowDeal}
-            deal={ShowDeal}
-            onRequest={() => handleRequestDeal(ShowDeal._id)}
-          />
-        </>
+        <ShowDealPost
+          setShowDeal={setShowDeal}
+          deal={ShowDeal}
+          onRequest={() => handleRequestDeal(ShowDeal._id)}
+        />
       ) : (
         <div className="h-screen text-[9px] xs:text-[10px] sm:text-[10px] md:text-[11px]">
-          <div className="flex justify-start mt-5 ml-10 gap-x-3 md:text-[11px]" >
+          <div className="flex justify-start mt-5 ml-10 gap-x-3 md:text-[11px]">
             <Dropdown
               key={1}
               items={navItems}
@@ -112,7 +130,9 @@ const Deals = () => {
 
           <div className="mt-5 space-y-10">
             {loading ? (
-              <p className="text-center">Loading deals...</p> // Loading message
+              <p className="text-center">Loading deals...</p>
+            ) : verificationMessage ? (
+              <p className="text-center text-red-500">{verificationMessage}</p> // Display verification message
             ) : filteredData.length > 0 ? (
               filteredData.map((brand, index) =>
                 brand.deals.map((deal, dealIndex) => (
@@ -146,6 +166,7 @@ const Deals = () => {
     </>
   );
 };
+
 const Dropdown = ({ items, initialValue, onChange }) => {
   const [isOpen, setIsOpen] = useState([0, initialValue]);
 
@@ -250,10 +271,6 @@ const ShowDealPost = ({ setShowDeal, deal, onRequest }) => {
           </div>
           <p className="poppins-semibold mt-5 text-[14px]">Influencer Requirements</p>
           <div className="grid gap-x-11 xs:w-[300px] sm:w-[500px] md:w-[650px]">
-            <div className="DealsBorder flex">
-              <p className="text-black/50 w-[200px]">Followers</p>
-              <p className="font-medium">{deal.followers}</p>
-            </div>
             <div className="DealsBorder flex">
               <p className="text-black/50 w-[200px]">Engagement Rate</p>
               <p className="font-medium">{deal.engagement_Rate}%</p>

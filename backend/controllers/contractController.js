@@ -138,6 +138,9 @@ const registerTransaction = async (estimatedReleaseDate, dealID, influencerID, a
 };
 
 export const addContract = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Start the session transaction
+
   try {
     const authHeader = req.headers.authorization; // Authorization token
 
@@ -162,7 +165,7 @@ export const addContract = async (req, res) => {
     }
 
     // Find the deal by ID
-    const deal = await Deal.findById(dealID);
+    const deal = await Deal.findById(dealID).session(session);
     if (!deal) {
       return res.status(404).json({ message: 'Deal not found' });
     }
@@ -180,16 +183,16 @@ export const addContract = async (req, res) => {
         dealID: dealID
       });
 
-      // Save each contract to the database
-      const savedContract = await newContract.save();
+      // Save each contract to the database within the session
+      const savedContract = await newContract.save({ session });
       contracts.push(savedContract); // Add each saved contract to the array
 
       // Register the transaction
-      await registerTransaction(milestones.deadline, dealID, influencer, milestones.budget, savedContract._id);
+      await registerTransaction(milestones.deadline, dealID, influencer, milestones.budget, savedContract._id, session);
 
       // Create and save notification for each influencer
       const message = `You have been invited to a new contract for deal ID: ${dealID}`;
-      let notification = await Notification.findOne({ userID: influencer });
+      let notification = await Notification.findOne({ userID: influencer }).session(session);
       if (notification) {
         notification.notifications.push({
           contractID: savedContract._id,
@@ -204,7 +207,7 @@ export const addContract = async (req, res) => {
           }]
         });
       }
-      await notification.save(); // Save the notification
+      await notification.save({ session }); // Save the notification
 
       // Add contractID and status to deal's userStatuses for this influencer
       const userStatus = {
@@ -215,7 +218,7 @@ export const addContract = async (req, res) => {
       deal.userStatuses.push(userStatus); // Push to userStatuses in deal
 
       // Find the user email using influencerID
-      const user = await User.findById(influencer);
+      const user = await User.findById(influencer).session(session);
       const recipientEmail = user ? user.email : null;
 
       if (recipientEmail) {
@@ -223,12 +226,15 @@ export const addContract = async (req, res) => {
         const subject = 'Contract Invitation Notification';
         const emailBody = `Dear ${user.fullName},\n\nYou have been invited to a new contract for deal ID: ${dealID}.\n\nPlease review the details in your dashboard.\n\nBest regards,\nInfluencer Harbor`;
 
-        await sendEmail(recipientEmail, subject, emailBody);
+        await sendEmail(recipientEmail, subject, emailBody); // Ensure email sending is outside the session as it's an external action
       }
     }
 
-    // Save the updated deal with contractIDs in userStatuses
-    await deal.save();
+    // Save the updated deal with contractIDs in userStatuses within the session
+    await deal.save({ session });
+
+    // Commit the transaction if everything is successful
+    await session.commitTransaction();
 
     // Send response back with all created contracts
     res.status(201).json({
@@ -238,10 +244,15 @@ export const addContract = async (req, res) => {
     });
   } catch (error) {
     console.error('Error details:', error);
+    // If there is an error, abort the transaction
+    await session.abortTransaction();
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
     res.status(500).json({ message: error.message || 'Server error, unable to create contracts' });
+  } finally {
+    // End the session
+    session.endSession();
   }
 };
 
@@ -258,10 +269,11 @@ export const getBrandContracts = async (req, res) => {
 
     // Array to hold the results
     const result = [];
+    let totalSpendings = 0; // Initialize total spendings
 
-    // Loop through contracts to extract influencer IDs, statuses, and postLinks
+    // Loop through contracts to extract influencer IDs, statuses, postLinks, and spendings
     for (const contract of contracts) {
-      const lastMilestone = contract.milestones[contract.milestones.length - 1]; // Get last milestone
+      const lastMilestone = contract.milestones[contract.milestones.length - 1]; // Get the last milestone
       const influencerID = contract.influencerID; // Get influencer ID
 
       // Fetch user data for the influencer
@@ -274,6 +286,13 @@ export const getBrandContracts = async (req, res) => {
           _id: link._id
         }));
 
+        // Check status and exclude spendings for certain statuses
+        let spendings = 0;
+        if (lastMilestone.status !== 'Payment Pending' && lastMilestone.status !== 'Invited') {
+          spendings = lastMilestone.budget;
+          totalSpendings += spendings; // Add to total spendings if status is not 'Payment Pending' or 'Invited'
+        }
+
         result.push({
           contractID: contract._id,
           influencerID: user._id,
@@ -282,7 +301,8 @@ export const getBrandContracts = async (req, res) => {
           photo: user.photo,
           fullName: user.fullName,
           age: user.age,
-          postLinks: postLinks // Add postLinks to the result
+          postLinks: postLinks, // Add postLinks to the result
+          spendings // Include spendings, or 0 if status is 'Payment Pending' or 'Invited'
         });
       }
     }
@@ -291,7 +311,8 @@ export const getBrandContracts = async (req, res) => {
     
     res.status(200).json({
       message: 'Contracts retrieved successfully.',
-      contracts: result
+      contracts: result,
+      totalSpendings // Include total spendings
     });
   } catch (error) {
     console.error('Error fetching brand contracts:', error);

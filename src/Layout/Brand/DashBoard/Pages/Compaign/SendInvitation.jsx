@@ -4,7 +4,7 @@ import Select from 'react-select';
 import { CampaignContext } from './CurrentCompaign';
 import './index.css';
 
-const SendInvitation = ({ influencersOptions, selectedInfluencers, handleChange }) => {
+const SendInvitation = ({ influencersOptions, selectedInfluencers, spendings, campaignBudget, handleChange }) => {
   const campaignData = useContext(CampaignContext);
   const [budget, setBudget] = useState(50);
   const [posts, setPosts] = useState(1);
@@ -26,10 +26,31 @@ const SendInvitation = ({ influencersOptions, selectedInfluencers, handleChange 
       alert("Please select at least one influencer.");
       return;
     }
-
+  
     // Ensure budget is at least $10 when sending the invitation
     if (budget < 10) {
       alert("Budget must be at least $10.");
+      return;
+    }
+  
+    // Check if the current spendings are greater than or equal to the campaign budget
+    if (spendings >= campaignBudget) {
+      alert("You cannot invite more influencers in this campaign.");
+      return;
+    }
+
+    if ((budget * selectedInfluencers.length) > campaignBudget){
+      alert("Invitation budget can not be greater than campaign budget.");
+      return;
+    }
+  
+    // Calculate the total spendings (current spendings + the new spendings for all selected influencers)
+    const newTotalSpendings = spendings + (selectedInfluencers.length * budget);
+  
+    // Check if the new total spendings exceed the campaign budget
+    if (newTotalSpendings > campaignBudget) {
+      const remainingBudget = campaignBudget - spendings;
+      alert(`You only have $${remainingBudget} left in your campaign budget. You cannot invite more influencers.`);
       return;
     }
     
@@ -42,11 +63,11 @@ const SendInvitation = ({ influencersOptions, selectedInfluencers, handleChange 
       influencerIDs,
       dealID: campaignData?._id,
     };
-
+  
     try {
       const authToken = localStorage.getItem('authToken');
       setLoading(true);
-
+  
       const response = await fetch('/Brand/addContract', {
         method: 'POST',
         headers: {
@@ -55,21 +76,21 @@ const SendInvitation = ({ influencersOptions, selectedInfluencers, handleChange 
         },
         body: JSON.stringify(data)
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Something went wrong');
       }
-
+  
       const result = await response.json();
       console.log('Contracts successfully created:', result);
-
+  
       // Set success message and start loading for redirection
       setSuccessMessage('Invitation sent successfully!');
       setRedirecting(true);
       setTimeout(() => {
         navigate('/Compaign');
-      }, 3000);
+      }, 1000);
       
     } catch (error) {
       console.error('Error creating contracts:', error);
@@ -77,7 +98,7 @@ const SendInvitation = ({ influencersOptions, selectedInfluencers, handleChange 
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handleBudgetChange = (e) => {
     const value = Number(e.target.value);

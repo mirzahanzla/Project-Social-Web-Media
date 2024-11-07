@@ -49,6 +49,16 @@ export const checkDealsWithContracts = async (req, res) => {
         throw new Error('Deal not found');
       }
 
+      // Check if any milestone has a status of "Invited" or "Payment Pending"
+      const hasExcludedStatus = contract.milestones.some(milestone =>
+        milestone.status === 'Invited' || milestone.status === 'Payment Pending'
+      );
+
+      // Skip the contract if any milestone has "Invited" or "Payment Pending" status
+      if (hasExcludedStatus) {
+        return null; // Skip this contract
+      }
+
       // Combine contract with influencer and deal data
       return {
         ...contract.toObject(),
@@ -61,7 +71,10 @@ export const checkDealsWithContracts = async (req, res) => {
       };
     }));
 
-    res.status(200).json({ message: 'Contracts found', contracts: enrichedContracts });
+    // Remove null values from the enrichedContracts array (contracts with excluded milestones)
+    const filteredContracts = enrichedContracts.filter(contract => contract !== null);
+
+    res.status(200).json({ message: 'Contracts found', contracts: filteredContracts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Internal server error' });

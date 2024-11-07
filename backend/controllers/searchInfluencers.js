@@ -13,7 +13,6 @@ export const searchInfluencers = async (req, res) => {
 
   try {
     // Verify the token and get userID
-    // eslint-disable-next-line no-undef
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userID = decoded.id;
 
@@ -40,7 +39,7 @@ export const searchInfluencers = async (req, res) => {
 
     if (!query) {
       // No query provided, fetch the first 20 influencers
-      influencers = await User.find({ userType: 'influencer' })
+      influencers = await User.find({ userType: 'influencer', verified: true })  // Only verified influencers
         .select('photo _id fullName followers bio userName')
         .lean()
         .limit(20) // Limit to 20 influencers
@@ -50,7 +49,8 @@ export const searchInfluencers = async (req, res) => {
       const regex = new RegExp(query, 'i'); // Case-insensitive regex
       influencers = await User.find({
         userType: 'influencer',
-        $or: [{ fullName: regex }, { userName: regex }],
+        verified: true,  // Only verified influencers
+        $or: [{ fullName: regex }, { userName: regex }]
       })
         .select('photo _id fullName followers bio userName')
         .lean()
@@ -68,7 +68,7 @@ export const searchInfluencers = async (req, res) => {
     res.setHeader('Expires', '0');
     res.setHeader('Pragma', 'no-cache');
 
-    // Return the list of influencers with status
+    // Return the list of verified influencers with status
     res.status(200).json({ influencers: influencersWithStatus });
 
   } catch (err) {

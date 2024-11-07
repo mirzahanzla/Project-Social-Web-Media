@@ -77,8 +77,13 @@ export const getEngagementAndBudgetByDealID = async (req, res) => {
     for (const contract of contracts) {
       if (contract.milestones && contract.milestones.length > 0) {
         const contractBudget = contract.milestones.reduce((sum, milestone) => {
-          return milestone.budget ? sum + milestone.budget : sum;
+          // Exclude budget addition if status is 'Payment Pending' or 'Invited'
+          if (milestone.status !== 'Payment Pending' && milestone.status !== 'Invited') {
+            return milestone.budget ? sum + milestone.budget : sum;
+          }
+          return sum; // Skip budget if status is 'Payment Pending' or 'Invited'
         }, 0);
+        
         totalContractBudget += contractBudget;
       }
 

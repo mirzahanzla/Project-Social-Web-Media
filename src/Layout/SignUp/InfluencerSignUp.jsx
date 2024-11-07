@@ -64,23 +64,37 @@ const InfluencerSignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     const { userId, fullName, age, website, photo, gender, category } = formData;
+  
+    // Check if all fields are filled
     if (!userId || !fullName || !age || !website || !photo || !gender || category.length === 0) {
       alert('Please fill in all fields.');
       return;
     }
-
+  
+    // Check if age is a numeric value and at least 18
+    if (!/^\d+$/.test(age)) {
+      alert('Age must be a numeric value.');
+      return;
+    } else if (parseInt(age, 10) < 18) {
+      alert('Age must be at least 18.');
+      return;
+    }
+  
+    // Check if the website link is a valid Instagram link
     if (!isValidInstagramLink(website)) {
       alert('Please provide a valid Instagram profile link.');
       return;
     }
-
+  
+    // Check if terms are accepted when on the relevant step
     if (!termsAccepted && stepperIndex === 1) {
       alert('Please accept the terms and conditions.');
       return;
     }
-
+  
+    // Prepare form data
     const data = new FormData();
     data.append('userId', userId);
     data.append('fullName', fullName);
@@ -91,7 +105,8 @@ const InfluencerSignUp = () => {
     }
     data.append('gender', gender);
     data.append('category', JSON.stringify(category));
-
+  
+    // Submit form or move to the next step
     if (stepperIndex === 1) {
       setLoading(true);
       try {
@@ -109,7 +124,7 @@ const InfluencerSignUp = () => {
     } else {
       setStepperIndex(stepperIndex + 1); // Move to next step
     }
-  };
+  };  
 
   return (
     <div className='w-full h-screen items-center sm:h-[550px] lg:h-screen flex text-10px bgSignUp text-[12px]'>

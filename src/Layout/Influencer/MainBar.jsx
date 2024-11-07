@@ -22,6 +22,7 @@ import Message from './Dashboard/Pages/Message/Message';
 import Info from './Dashboard/Pages/Info/Info';
 import ErrorPage from './Dashboard/Pages/ErrorPage/ErrorPage';
 import UserProfile from '../../Components/DashBoardTemplate/userProfile';
+import EditBlog from './Dashboard/Pages/Blog/EditBlog';
 
 const MainBar = () => {
   return (
@@ -59,8 +60,9 @@ const MainBar = () => {
         </Route>
 
         <Route path="Blog" element={<Main />}>
-          <Route index element={<Blog />} />
+        <Route index element={<Blog />} />
           <Route path="CreateBlog" element={<CreateBlog />} />
+          <Route path="EditBlog/:blogId" element={<EditBlog />} /> {/* Add this route */}
         </Route>
 
         <Route path="Message" element={<Message />} />

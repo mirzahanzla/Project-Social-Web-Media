@@ -54,21 +54,14 @@ export const addCampaign = async (req, res) => {
 
     const savedDeal = await deal.save();
 
-    // Find or create the brand
-    let brand = await Brand.findOne({ brandName: user.fullName });
-    if (!brand) {
-      // Create a new brand if not found
-      brand = new Brand({
-        brandID: user._id,
-        brandName: user.fullName,
-        brandImage: user.photo,
-        deals: [{ dealID: savedDeal._id }]
-      });
-      await brand.save();
-    } else {
+    // Find the existing brand
+    const brand = await Brand.findOne({ brandName: user.fullName });
+    if (brand) {
       // Add the new deal to the existing brand
       brand.deals.push({ dealID: savedDeal._id });
       await brand.save();
+    } else {
+      return res.status(404).json({ message: 'Brand not found' });
     }
 
     res.status(201).json({ message: 'Campaign created successfully', deal: savedDeal });

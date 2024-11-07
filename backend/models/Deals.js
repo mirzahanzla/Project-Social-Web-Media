@@ -6,7 +6,6 @@ const dealSchema = new mongoose.Schema({
   taskDes: { type: String, required: true },
   category: { type: String, required: true },
   platform: { type: String, required: true },
-  followers: { type: Number, required: true },
   engagement_Rate: { type: Number, required: true },
   budget: { type: Number, required: true },
   status: { type: String, default: "Active"},

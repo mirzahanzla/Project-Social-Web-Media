@@ -13,6 +13,7 @@ const Workflow = () => {
   const campaignData = useContext(CampaignContext);
   const [selectedInfluencers, setSelectedInfluencers] = useState([]);
   const [influencersOptions, setInfluencersOptions] = useState([]);
+  const [totalSpendings, setTotalSpendings] = useState(0);
 
   const handleChange = (selectedOptions) => {
     if (selectedOptions.length <= 3) {
@@ -44,17 +45,26 @@ const Workflow = () => {
           }
         });
   
+        if (contractsResponse.data.message === "No contracts found for this deal ID.") {
+          // If no contracts found, set options directly and return early
+          setInfluencersOptions(options);
+          return;
+        }
+  
         const influencerStatusMap = new Map();
-
+        let totalSpendingsNum = 0;
+  
         // Build a map to track all statuses for each influencer in contracts
         contractsResponse.data.contracts.forEach(contract => {
-          const { influencerID, status } = contract;
+          const { influencerID, status, spendings } = contract;
+          totalSpendingsNum += spendings;
           if (!influencerStatusMap.has(influencerID)) {
             influencerStatusMap.set(influencerID, []);
           }
           influencerStatusMap.get(influencerID).push(status);
         });
-
+  
+        setTotalSpendings(totalSpendingsNum);
         // Filter influencers:
         // 1. Include those with all contracts approved
         // 2. Include those with no contracts
@@ -71,7 +81,7 @@ const Workflow = () => {
     };
   
     fetchInfluencerNetwork();
-  }, [campaignData]);
+  }, [campaignData]);  
 
   let rejectedCount = 0;
   let acceptedCount = 0;
@@ -167,6 +177,7 @@ const Workflow = () => {
         <SimpleCard name="Rejected" price={rejectedCount} />
         <SimpleCard name="Accepted" price={acceptedCount} />
         <SimpleCard name="Requests" price={requestedCount} />
+        <SimpleCard name="Spendings" price={totalSpendings} />
       </div>
 
       <div>
@@ -207,6 +218,8 @@ const Workflow = () => {
             <SendInvitation 
               influencersOptions={influencersOptions}
               selectedInfluencers={selectedInfluencers}
+              spendings={totalSpendings}
+              campaignBudget={campaignBudget}
               handleChange={handleChange}
             />
           </div>

@@ -15,13 +15,22 @@ export const signUp = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({ email, password: hashedPassword, userType, status: 'incomplete' });
+    // Create the newUser object with conditional "verified" field
+    const newUserData = {
+      email,
+      password: hashedPassword,
+      userType,
+      status: 'incomplete',
+      ...(userType === 'influencer' && { verified: false }) // Add "verified: false" only if userType is "influencer"
+    };
+
+    const newUser = new User(newUserData);
     await newUser.save();
 
     // Generate a JWT token
     const token = jwt.sign(
       { email: newUser.email, id: newUser._id },  // Payload
-      process.env.JWT_SECRET,                    // Secret key
+      process.env.JWT_SECRET,                     // Secret key
       { expiresIn: '7d' }
     );
 

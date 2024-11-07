@@ -56,7 +56,7 @@ const Search = () => {
       {showInfluencerProfile ? (
         <InfluencerProfile 
           setShowInfluencerProfile={setShowInfluencerProfile}
-          userName={influencers.find(inf => inf._id === showInfluencerProfile)?.userName}
+          userName={influencers.find(inf => inf._id === showInfluencerProfile)?.fullName || ''}
         />
       ) : (
         <>
@@ -148,21 +148,10 @@ const Search = () => {
     </>
   );
 };
-const ProfileInformation = ({
-  id,
-  ProfileImage,
-  pic1,
-  pic2,
-  pic3,
-  pic4,
-  name,
-  UserName,
-  Followers,
-  Bio,
-  setShowInfluencerProfile,
-  status,
-  onStatusUpdate
-}) => {
+
+const ProfileInformation = ({ id, ProfileImage, pic1, pic2, pic3, pic4, name,
+  UserName, Followers, Bio, setShowInfluencerProfile, status, onStatusUpdate}) => {
+  
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState(null);
   const [currentStatus, setCurrentStatus] = useState(status);

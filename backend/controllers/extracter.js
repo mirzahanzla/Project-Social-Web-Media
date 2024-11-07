@@ -18,12 +18,25 @@ export const getInstagramProfileData = async (profileUrl) => {
         // Navigate to the specified Instagram profile URL
         await driver.get(profileUrl);
 
-        // Wait for and retrieve followers count
+        // Set initial window size for better visibility of the elements
+        await driver.manage().window().setRect({ width: 1080, height: 1080 });
+
+        // Wait for and retrieve followers count from the first selector
         const followersElement = await driver.wait(
             until.elementLocated(By.css(".xl565be:nth-child(2) .html-span")),
-            15000 // Wait up to 15 seconds
+            30000 // Wait up to 30 seconds
         );
         let followers = await followersElement.getText();
+
+        // If the first selector fails, try using the second one (in case of layout changes)
+        if (!followers) {
+            await driver.manage().window().setRect({ width: 500, height: 500 }); // Resize window for better visibility
+            const followersElementAlt = await driver.wait(
+                until.elementLocated(By.css(".x6s0dn4:nth-child(2) .html-span")),
+                30000 // Wait up to 30 seconds
+            );
+            followers = await followersElementAlt.getText();
+        }
 
         // Convert followers to numeric format
         if (followers.includes('M')) {

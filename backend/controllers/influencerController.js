@@ -20,11 +20,11 @@ export const saveInfluencerInfo = async (req, res) => {
     }
 
     // Fetch Instagram profile data
-    const profileData = await getInstagramProfileData(website);
+    // const profileData = await getInstagramProfileData(website);
     
-    if (parseInt(profileData.followers) < 200000) {
-      return res.status(400).json({ message: "User can't have followers less than 200k." });
-    }
+    // if (parseInt(profileData.followers) < 200000) {
+    //   return res.status(400).json({ message: "User can't have followers less than 200k." });
+    // }
 
     // Handle the image upload to Firebase Storage
     const photoRef = ref(storage, `images/${Date.now()}_${photo.originalname}`);

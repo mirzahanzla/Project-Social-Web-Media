@@ -184,6 +184,7 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
   const [showPaymentOption, setShowPaymentOption] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileError, setFileError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
 
@@ -433,34 +434,39 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
     }
   };
 
-  const handleSubmit = async () => {
+  const handleScreenShotSubmit = async () => {
     if (!fileError) {
-        const formData = new FormData();
-
-        // Append the file to the FormData
-        formData.append('screenshot', selectedFile); // Make sure selectedFile is set when the user selects a file
-        formData.append('contractID', contractID); // Append the contractID
-
-        try {
-            const response = await fetch('/Brand/uploadTransactionProof', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                console.log("Upload successful:", data);
-                setShowPaymentOption(false);
-            } else {
-                // Handle errors from the server
-                console.error("Upload failed:", data.message);
-                alert(data.message); // Display error message to user
-            }
-        } catch (error) {
-            console.error("Error during upload:", error);
-            alert("An error occurred while uploading the screenshot. Please try again.");
+      const formData = new FormData();
+  
+      // Append the file to the FormData
+      formData.append('screenshot', selectedFile); // Make sure selectedFile is set when the user selects a file
+      formData.append('contractID', contractID); // Append the contractID
+  
+      try {
+        setIsLoading(true); // Set loading state to true when starting upload
+  
+        const response = await fetch('/Brand/uploadTransactionProof', {
+          method: 'POST',
+          body: formData,
+        });
+  
+        const data = await response.json();
+  
+        if (response.ok) {
+          console.log("Upload successful:", data);
+          setShowPaymentOption(false);
+          navigate('/Compaign');
+        } else {
+          // Handle errors from the server
+          console.error("Upload failed:", data.message);
+          alert(data.message); // Display error message to user
         }
+      } catch (error) {
+        console.error("Error during upload:", error);
+        alert("An error occurred while uploading the screenshot. Please try again.");
+      } finally {
+        setIsLoading(false); // Set loading state to false once the request is complete
+      }
     }
   };
 
@@ -528,7 +534,10 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
 
     if (Status === 'Payment Pending') {
       options.push(
-        <li key="uploadScreenshot" className="px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer" onClick={() => setShowPaymentOption(true)}>
+        <li key="uploadScreenshot" className="px-4 py-2 text-gray-700 hover:bg-gray-100 cursor-pointer" 
+        onClick={() =>{ setShowPaymentOption(true);
+         setShowDropdown(false)}
+         }>
           Upload Screenshot
         </li>
       );
@@ -541,8 +550,8 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
     <div className="mt-5 relative">
 
       {showPaymentOption && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50"> {/* Ensure z-50 to be on top */}
+          <div className="bg-white p-6 rounded-lg shadow-lg z-60"> {/* Ensure z-60 to be on top of the overlay */}
             <h2 className="text-lg font-semibold mb-4">Pay and Upload Payment Screenshot</h2>
             <div className="mb-2">
               <p className="font-bold">Account Number:</p>
@@ -572,14 +581,23 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
               <button className="bg-red-500 text-white px-4 py-2 rounded mr-2" onClick={() => setShowPaymentOption(false)}>
                 Cancel
               </button>
-              <button className="bg-green-500 text-white px-4 py-2 rounded" onClick={handleSubmit}>
-                Submit
+              <button 
+                className="bg-green-500 text-white px-4 py-2 rounded"
+                onClick={handleScreenShotSubmit}
+                disabled={isLoading} // Disable button while loading
+              >
+                {isLoading ? 'Uploading...' : 'Submit'} {/* Show loading text */}
               </button>
             </div>
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-60">
+                <div className="text-white">Uploading, please wait...</div>
+              </div>
+            )}
           </div>
         </div>
       )}
-      
+
       {showLinks && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg z-50">
