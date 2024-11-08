@@ -15,5 +15,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: proxyConfig,
+    historyApiFallback: true,
   },
 });
