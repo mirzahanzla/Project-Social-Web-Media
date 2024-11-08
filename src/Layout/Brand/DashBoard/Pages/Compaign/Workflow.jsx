@@ -99,6 +99,7 @@ const Workflow = () => {
       }
 
       const userStatuses = campaignData.userStatuses;
+      console.log("User Statuses: ", userStatuses);
       if (!userStatuses || userStatuses.length === 0) {
         console.warn("userStatuses is null or empty");
         setDataLoaded(true);

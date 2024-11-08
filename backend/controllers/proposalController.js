@@ -11,6 +11,9 @@ import { storage } from '../config/firebase.js'; // Import the storage configura
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export const addProposal = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Begin the transaction
+
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -29,6 +32,7 @@ export const addProposal = async (req, res) => {
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
 
+    // Create a new proposal with the session
     const newProposal = new Proposal({
       budget: req.body.budget,
       posts: req.body.posts,
@@ -38,16 +42,18 @@ export const addProposal = async (req, res) => {
       link: req.body.link,
     });
 
-    const savedProposal = await newProposal.save();
+    const savedProposal = await newProposal.save({ session });
 
     // Retrieve the proposal ID
     const proposalID = savedProposal._id;
 
-    // Find the deal to update
+    // Find and update the deal with the session
     const dealID = req.body.dealID;
-    const deal = await Deal.findById(dealID);
+    const deal = await Deal.findById(dealID).session(session);
 
     if (!deal) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'Deal not found' });
     }
 
@@ -64,17 +70,29 @@ export const addProposal = async (req, res) => {
       });
     }
 
-    await deal.save();
+    await deal.save({ session });
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({ message: 'Proposal added and deal updated', proposal: savedProposal, deal });
 
   } catch (error) {
     console.error(error);
+
+    // Roll back the transaction if there's an error
+    await session.abortTransaction();
+    session.endSession();
+
     res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 };
 
 export const rejectProposal = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Begin the transaction
+
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -92,69 +110,83 @@ export const rejectProposal = async (req, res) => {
       return res.status(403).json({ message: 'Token is invalid or expired' });
     }
 
-    // Get dealID and userID from request body
-    const { dealID, userID } = req.body; // Get dealID and userID from the request body
+    const { dealID, userID } = req.body;
 
     if (!dealID || !userID) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: 'Deal ID and User ID are required' });
     }
 
-    // Find the deal by dealID
-    const deal = await Deal.findById(dealID);
+    // Find and update the deal with the session
+    const deal = await Deal.findById(dealID).session(session);
     if (!deal) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'Deal not found' });
     }
 
     // Find the user's status in the userStatuses array
     const userStatus = deal.userStatuses.find(status => status.userID.toString() === userID);
     if (!userStatus) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'User status not found for this deal' });
     }
 
     // Update the status to 'Rejected'
     userStatus.status = 'Rejected';
-
-    // Save the updated deal
-    await deal.save();
+    await deal.save({ session }); // Save the updated deal with the session
 
     // Find the influencer's email
-    const influencer = await User.findById(userID);
+    const influencer = await User.findById(userID).session(session);
     if (!influencer) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: 'Influencer not found' });
     }
 
     // Prepare notification message
     const notificationMessage = `Your Proposal for the deal (ID: ${dealID}) has been rejected.`;
 
-    // Push notification to the influencer's notification array
-    const notification = await Notification.findOne({ userID: influencer._id });
+    // Update or create the notification with the session
+    const notification = await Notification.findOne({ userID: influencer._id }).session(session);
     if (notification) {
       notification.notifications.push({
-        contractID: dealID, // Push the contract ID
-        message: notificationMessage // Push the message
+        contractID: dealID,
+        message: notificationMessage,
       });
-      await notification.save(); // Save the updated notification
+      await notification.save({ session });
     } else {
-      // Create a new notification document if it doesn't exist
       const newNotification = new Notification({
         userID: influencer._id,
         notifications: [{
           contractID: dealID,
-          message: notificationMessage
-        }]
+          message: notificationMessage,
+        }],
       });
-      await newNotification.save(); // Save the updated notification
+      await newNotification.save({ session });
     }
 
     // Send email to the influencer
     const influencerSubject = 'Contract Withdrawal Notification';
     const influencerEmailBody = `Dear ${influencer.fullName},\n\n${notificationMessage}\n\nBest regards,\nYour Company`;
 
-    await sendEmail(influencer.email, influencerSubject, influencerEmailBody); // Sending email
+    await sendEmail(influencer.email, influencerSubject, influencerEmailBody);
+
+    // Commit the transaction if all operations succeed
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({ message: 'Proposal rejected successfully', deal });
+
   } catch (error) {
     console.error('Error rejecting proposal:', error);
+
+    // Roll back the transaction in case of error
+    await session.abortTransaction();
+    session.endSession();
+
     res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 };

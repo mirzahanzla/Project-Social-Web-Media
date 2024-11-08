@@ -17,8 +17,8 @@ const Dashboard = () => {
 
   const [influencers, setInfluencers] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [totalSpendings, setTotalSpendings] = useState(0); // New state for totalSpendings
 
-  // Fetch influencers from the API
   useEffect(() => {
     const fetchInfluencers = async () => {
       try {
@@ -27,36 +27,45 @@ const Dashboard = () => {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
             'Content-Type': 'application/json'
           }
-        });    
+        });
 
-        const data = response.data.contracts;
-        console.log("Data is: ", data);
+        const data = response.data?.contracts;
+        const fetchedTotalSpendings = response.data?.totalSpendings;
 
-        // Update influencers with status based on userStatuses
-        const updatedInfluencers = data.map(influencer => ({
-          _id: influencer.influencerID,
-          status: influencer.status,
-          bio: influencer.bio,
-          photo: influencer.photo,
-          fullName: influencer.fullName,
-          age: influencer.age,
-          contractID: influencer.contractID,
-          postLinks: influencer.postLinks
-        }));        
-  
-        setInfluencers(updatedInfluencers);
+        if (Array.isArray(data) && data.length > 0) {
+          const updatedInfluencers = data.map(influencer => ({
+            _id: influencer.influencerID,
+            status: influencer.status,
+            bio: influencer.bio,
+            photo: influencer.photo,
+            fullName: influencer.fullName,
+            age: influencer.age,
+            contractID: influencer.contractID,
+            postLinks: influencer.postLinks,
+            budget: influencer.budget
+          }));
+
+          setInfluencers(updatedInfluencers);
+        } else {
+          console.warn("No influencer data available.");
+          setInfluencers([]); 
+        }
+
+        // Set the totalSpendings in state
+        setTotalSpendings(fetchedTotalSpendings || 0);
+
       } catch (error) {
         console.error('Error fetching influencers:', error);
       }
     };
-  
+
     if (campaignData && campaignData.userStatuses && campaignData.userStatuses.length > 0) {
       fetchInfluencers();
     }
 
-    // Set dataLoaded to true once the effect has run
     setDataLoaded(true);
-  }, [campaignData]);  
+  }, [campaignData]);
+
 
   // Loop through influencer statuses and count the statuses
   if (influencers.length) {
@@ -127,10 +136,10 @@ const Dashboard = () => {
                   const { borderColor, textColor } = getStatusStyles(influencer.status);
                   return (
                     <InfluencerList
-                      key={influencer._id} // Using '_id' from the fetched data
-                      ImageSrc={influencer.photo} // Assuming 'photo' is the image source
-                      Name={influencer.fullName} // Assuming 'fullName' is the name
-                      age={influencer.age} // Assuming 'age' is the age
+                      key={influencer._id}
+                      ImageSrc={influencer.photo}
+                      Name={influencer.fullName}
+                      age={influencer.age}
                       ColorBorder={borderColor}
                       Status={influencer.status}
                       TextColor={textColor}
@@ -138,10 +147,13 @@ const Dashboard = () => {
                       contractID={influencer.contractID}
                       DealID={campaignData?._id}
                       postLinks={influencer.postLinks}
+                      budget={influencer.budget} 
+                      totalSpending={totalSpendings} 
+                      campaignBudget={campaignData?.budget}
                     />
                   );
                 })
-              ) : (
+                ) : (
                 <p className="text-center text-gray-500 mt-4">
                   No requests at this time. Invite influencers to connect.
                 </p>
@@ -165,7 +177,9 @@ const SimpleCard = ({ name, price }) => {
   );
 };
 
-const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, bio, contractID, DealID, postLinks }) => {
+const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, bio, contractID,
+  DealID, postLinks, totalSpending, budget, campaignBudget }) => {
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -187,8 +201,6 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
   const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
-
-  console.log("Data:    ", contractID);
 
   // Handle Cancel Contract action
   const handleCancelContract = async () => {
@@ -435,12 +447,22 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
   };
 
   const handleScreenShotSubmit = async () => {
+    // Calculate the remaining budget for this campaign
+    const remainingBudget = campaignBudget - totalSpending;
+  
+    // Check if the current budget + totalSpendings is within the campaign budget
+    if (budget + totalSpending > campaignBudget) {
+      alert(`You have ${remainingBudget} left in your campaign budget, and the current budget exceeds it. Please adjust the budget.`);
+      return; // Exit the function if the budget exceeds the limit
+    }
+  
+    // Proceed with submission if the budget is within limits
     if (!fileError) {
       const formData = new FormData();
   
-      // Append the file to the FormData
-      formData.append('screenshot', selectedFile); // Make sure selectedFile is set when the user selects a file
-      formData.append('contractID', contractID); // Append the contractID
+      // Append the file and contractID to the FormData
+      formData.append('screenshot', selectedFile);
+      formData.append('contractID', contractID);
   
       try {
         setIsLoading(true); // Set loading state to true when starting upload
@@ -468,7 +490,7 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
         setIsLoading(false); // Set loading state to false once the request is complete
       }
     }
-  };
+  };  
 
   const getDropdownOptions = () => {
     const options = [];
@@ -550,52 +572,60 @@ const InfluencerList = ({ ImageSrc, Name, age, ColorBorder, Status, TextColor, b
     <div className="mt-5 relative">
 
       {showPaymentOption && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50"> {/* Ensure z-50 to be on top */}
-          <div className="bg-white p-6 rounded-lg shadow-lg z-60"> {/* Ensure z-60 to be on top of the overlay */}
-            <h2 className="text-lg font-semibold mb-4">Pay and Upload Payment Screenshot</h2>
-            <div className="mb-2">
-              <p className="font-bold">Account Number:</p>
-              <p>03058761739</p> {/* Replace with your actual account number */}
-            </div>
-            <div className="mb-2">
-              <p className="font-bold">Bank Account Name:</p>
-              <p>Jazz cash</p> {/* Replace with your bank account name */}
-            </div>
-            <div className="mb-2">
-              <p className="font-bold">Account Holder Name:</p>
-              <p>Ali Saif</p> {/* Replace with account holder name */}
-            </div>
-            <div className="mb-4">
-              <label className="block mb-2 font-bold">Upload Screenshot:</label>
-              <input 
-                type="file" 
-                className="border p-2 w-full mt-1" 
-                accept="image/png, image/jpeg, image/jpg" 
-                onChange={handleFileChange} 
-              />
-              {fileError && (
-                <p className="text-red-500 mt-2">Please upload a valid image file (PNG or JPG).</p>
+        (totalSpending + budget < campaignBudget) ? (
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg z-60">
+              <h2 className="text-lg font-semibold mb-4">Pay and Upload Payment Screenshot</h2>
+              <div className="mb-2">
+                <p className="font-bold">Account Number:</p>
+                <p>03058761739</p> {/* Replace with your actual account number */}
+              </div>
+              <div className="mb-2">
+                <p className="font-bold">Bank Account Name:</p>
+                <p>Jazz cash</p> {/* Replace with your bank account name */}
+              </div>
+              <div className="mb-2">
+                <p className="font-bold">Account Holder Name:</p>
+                <p>Ali Saif</p> {/* Replace with account holder name */}
+              </div>
+              <div className="mb-2">
+                <p className="font-bold">Payable Amount:</p>
+                <p>${budget}</p>
+              </div>
+              <div className="mb-4">
+                <label className="block mb-2 font-bold">Upload Screenshot:</label>
+                <input 
+                  type="file" 
+                  className="border p-2 w-full mt-1" 
+                  accept="image/png, image/jpeg, image/jpg" 
+                  onChange={handleFileChange} 
+                />
+                {fileError && (
+                  <p className="text-red-500 mt-2">Please upload a valid image file (PNG or JPG).</p>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button className="bg-red-500 text-white px-4 py-2 rounded mr-2" onClick={() => setShowPaymentOption(false)}>
+                  Cancel
+                </button>
+                <button 
+                  className="bg-green-500 text-white px-4 py-2 rounded"
+                  onClick={handleScreenShotSubmit}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Uploading...' : 'Submit'}
+                </button>
+              </div>
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-60">
+                  <div className="text-white">Uploading, please wait...</div>
+                </div>
               )}
             </div>
-            <div className="flex justify-end">
-              <button className="bg-red-500 text-white px-4 py-2 rounded mr-2" onClick={() => setShowPaymentOption(false)}>
-                Cancel
-              </button>
-              <button 
-                className="bg-green-500 text-white px-4 py-2 rounded"
-                onClick={handleScreenShotSubmit}
-                disabled={isLoading} // Disable button while loading
-              >
-                {isLoading ? 'Uploading...' : 'Submit'} {/* Show loading text */}
-              </button>
-            </div>
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 z-60">
-                <div className="text-white">Uploading, please wait...</div>
-              </div>
-            )}
           </div>
-        </div>
+        ) : (
+          alert(`You have ${campaignBudget - totalSpending} left in your campaign budget. Please adjust the budget.`)
+        )
       )}
 
       {showLinks && (

@@ -30,45 +30,55 @@ export const getDeals = async (req, res) => {
       return res.status(403).json({ message: 'Please verify your profile first to view deals' });
     }
 
-    // Continue with fetching deals if user is verified
-    const brands = await Brand.find();
+    // Fetch all brands with their deals
+    const brands = await Brand.find().populate('deals.dealID'); // Assuming 'dealID' references a Deal
 
     if (brands.length === 0) {
       return res.status(200).json({ message: 'No deals found', data: [] });
     }
 
-    // Collect all deal IDs from brands
-    const dealIds = brands.flatMap(brand => brand.deals.map(deal => deal.dealID));
-    const deals = await Deal.find({ _id: { $in: dealIds } });
+    // Set of deal IDs to filter out based on userStatuses
+    const excludedDealIDs = new Set();
 
-    const dealMap = new Map(deals.map(deal => [deal._id.toString(), deal])); // Create a map of deals by their ID for quick lookup
+    // Go through deals, and check user status to exclude deals
+    for (const brand of brands) {
+      for (const deal of brand.deals) {
+        const dealDetails = deal.dealID;  // Assuming populated `dealID` gives us the deal details
 
-    // Update brands with detailed deal information
-    const updatedBrands = brands.map(brand => {
-      const updatedDeals = brand.deals.map(deal => {
-        const dealDetails = dealMap.get(deal.dealID.toString());
         if (dealDetails) {
-          const hasApprovedOrRequestedStatus = dealDetails.userStatuses.some(
-            status => ['Approved', 'Requested', 'Invited'].includes(status.status)
-          );
-          if (hasApprovedOrRequestedStatus) {
-            return null; // Filter out deals with "Approved" status
+          const userStatus = dealDetails.userStatuses.find(status => status.userID.toString() === userID.toString());
+
+          if (userStatus && ['Approved', 'Requested', 'Invited'].includes(userStatus.status)) {
+            excludedDealIDs.add(dealDetails._id.toString());
           }
-          return {
-            _id: dealDetails._id,
-            dealImage: dealDetails.dealImage,
-            campaignDes: dealDetails.campaignDes,
-            taskDes: dealDetails.taskDes,
-            category: dealDetails.category,
-            platform: dealDetails.platform,
-            followers: dealDetails.followers,
-            engagement_Rate: dealDetails.engagement_Rate,
-            userStatuses: dealDetails.userStatuses,
-            budget: dealDetails.budget
-          };
         }
-        return null;
-      }).filter(deal => deal !== null); // Remove any null deals if not found or filtered out
+      }
+    }
+
+    // Map brands with filtered deals
+    const updatedBrands = brands.map(brand => {
+      const updatedDeals = brand.deals
+        .map(deal => {
+          const dealDetails = deal.dealID;
+
+          if (dealDetails && !excludedDealIDs.has(dealDetails._id.toString())) {
+            return {
+              _id: dealDetails._id,
+              dealImage: dealDetails.dealImage,
+              campaignDes: dealDetails.campaignDes,
+              taskDes: dealDetails.taskDes,
+              category: dealDetails.category,
+              platform: dealDetails.platform,
+              followers: dealDetails.followers,
+              engagement_Rate: dealDetails.engagement_Rate,
+              userStatuses: dealDetails.userStatuses,
+              budget: dealDetails.budget
+            };
+          }
+
+          return null; // Deal is excluded
+        })
+        .filter(deal => deal !== null); // Remove null values (excluded deals)
 
       return {
         ...brand.toObject(), // Convert Mongoose document to plain object

@@ -297,6 +297,7 @@ export const getBrandContracts = async (req, res) => {
           contractID: contract._id,
           influencerID: user._id,
           status: lastMilestone.status, // Get status from the last milestone
+          budget: lastMilestone.budget,
           bio: user.bio,
           photo: user.photo,
           fullName: user.fullName,

@@ -1,29 +1,28 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const SimpleAreaChart = ({ budgets }) => {
+  // Get a reversed copy of the budgets array
+  const reversedBudgets = [...budgets].reverse();
+
   // Get the current date
   const currentDate = new Date();
+  console.log("Reversed Budgets: ", reversedBudgets);
 
-  // Prepare month names for the last 6 months
+  // Prepare month names for the last 6 months in chronological order
   const monthNames = [];
-  for (let i = 0; i < 6; i++) {
-    // Get the month name (MMM format)
-    const monthStr = currentDate.toLocaleString('default', { month: 'short' });
-    monthNames.push(monthStr); // Push the month name to the array
-
-    // Update the month for the next iteration
-    currentDate.setMonth(currentDate.getMonth() - 1);
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(currentDate.getMonth() - i);
+    const monthStr = date.toLocaleString('default', { month: 'short' });
+    monthNames.push(monthStr);
   }
-
-  // Reverse monthNames and budgets to display correctly
-  monthNames.reverse();
-  budgets.reverse();
 
   // Prepare data for the chart
   const data = monthNames.map((month, index) => ({
     name: month,  // Month name for the x-axis
-    Budget: budgets[index] || 0,  // Budget for the y-axis
+    Budget: reversedBudgets[index] || 0,  // Budget for the y-axis
   }));
+  console.log("Data prepared: ", data);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
