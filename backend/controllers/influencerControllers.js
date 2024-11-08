@@ -8,10 +8,7 @@ export const saveInfluencerIn = async (req, res) => {
   const { userId, position, companySize, influencersWorkedWith, brandName, website, category } = req.body;
   const logo = req.file;
 
-  // Validate that the userId is a valid ObjectId
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ message: 'Invalid user ID.' });
-  }
+
 
   if (!logo) {
     return res.status(400).json({ message: 'No logo file uploaded.' });
@@ -56,7 +53,7 @@ export const saveInfluencerIn = async (req, res) => {
         website,             // Website URL
         photo: logoURL,       // Uploaded logo URL
         category,            // Array of categories
-        status: 'complete'   // Update status to 'complete'
+        status: true   // Update status to 'complete'
       },
       { new: true, session } // Use the session for the update
     );
@@ -77,6 +74,17 @@ export const saveInfluencerIn = async (req, res) => {
       // Commit the transaction if everything is successful
       await session.commitTransaction();
       session.endSession(); // End the session
+
+      res.cookie("pC", '1', {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+        sameSite: 'strict',
+        path: '/', 
+      });
+  
+  
+  
+  
+ 
 
       res.status(200).json({ message: 'User information added and status updated successfully', user: updatedUser });
     } else {

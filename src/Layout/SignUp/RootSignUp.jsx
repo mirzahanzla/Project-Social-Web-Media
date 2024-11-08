@@ -11,4 +11,4 @@ const RootSignUp = () => {
   )
 }
 
-export default RootSignUp;
+export default RootSignUp

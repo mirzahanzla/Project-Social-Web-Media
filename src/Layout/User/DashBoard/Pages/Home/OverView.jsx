@@ -1,5 +1,4 @@
 import './Index.css';
-// eslint-disable-next-line no-unused-vars
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import ShowComments from './showComments';
@@ -111,7 +110,7 @@ const Post = ({ userImage, userName, postTime, postImage, likesCount, postTitle,
   const [actionError, setActionError] = useState(null);
   const [likeCount, setLikesCount] = useState(likesCount);
   const [commentCount, setCommentsCount] = useState(commentsCount);
-  // const [comment, setComment] = useState('');
+  const [comment, setComment] = useState('');
   const [showComments, setShowComments] = useState(false);
 
   const handleImageLoad = (event) => {

@@ -25,6 +25,9 @@ import { storage } from './config/firebase.js';
 import { ref, listAll } from 'firebase/storage';
 import { updateInstagramPostData } from './controllers/extracter.js';
 
+import NewUserRoutes from './routes/NewAuth/users.js';
+import NewAuthRoutes from './routes/NewAuth/auth.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -41,18 +44,20 @@ const io = new Server(server, {
 
 app.use(cors({
   origin: 'http://localhost:5173', // Frontend URL
-  credentials: true,
+  credentials: true // If you need to allow cookies or other credentials
 }));
 
 // eslint-disable-next-line no-undef
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
+app.use('/Newauth/users', NewUserRoutes);
+app.use('/Newauth/auth', NewAuthRoutes);
 app.use('/api', influencerRoutes);
 app.use('/influencer', blogs);
 app.use('/Brand', blogs);

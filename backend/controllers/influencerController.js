@@ -7,6 +7,7 @@ export const saveInfluencerInfo = async (req, res) => {
   const { userId, fullName, age, website, gender, category } = req.body;
   const photo = req.file;
 
+
   try {
     if (!photo.mimetype.startsWith('image/')) {
       console.error('Invalid file type. File type:', photo.mimetype);
@@ -41,12 +42,18 @@ export const saveInfluencerInfo = async (req, res) => {
         photo: photoURL, 
         gender, 
         category,
-        status: 'complete',
+        status: true,
       },
       { new: true } 
     );
 
     if (updatedUser) {
+
+      res.cookie("pC", '1', {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+        sameSite: 'strict',
+        path: '/', 
+      });
       res.status(200).json({ message: 'User information added and status updated successfully', user: updatedUser });
     } else {
       console.error('User not found:', userId);

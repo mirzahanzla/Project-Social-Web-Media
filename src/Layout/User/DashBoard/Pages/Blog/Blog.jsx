@@ -9,6 +9,7 @@ const Blog = () => {
   const [hasMore, setHasMore] = useState(true);
   const [skip, setSkip] = useState(0);
   const limit = 15;
+  const navigate = useNavigate();
 
   const fetchBlogs = async () => {
     setLoading(true); // Start loading

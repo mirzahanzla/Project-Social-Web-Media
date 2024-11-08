@@ -16,6 +16,8 @@ const Home = () => {
     const fetchProfileData = async () => {
       try {
         const token = localStorage.getItem('authToken');
+        console.log("Auth token is ")
+        console.log(token)
         if (!token) {
           throw new Error('No token found in local storage');
         }

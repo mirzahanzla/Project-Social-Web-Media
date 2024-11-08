@@ -1,407 +1,442 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import Logo from '../../Components/Logo/Logo';
+import { motion, MotionConfig } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
-import { useLocation } from 'react-router-dom';
 import './index.css';
+import LoginSignNavBar from '../../Components/LoginSignNavBar/LoginSignNavBar';
 import NavBar from './NavBar';
+import Cookies from 'js-cookie';
+import axios from "axios";
+import { useState, useEffect, useRef } from 'react';
+import ScreenSizeDisplay from '../../useCurrentScreenSize';
 
 const InfluencerSignUp = () => {
   const [stepperIndex, setStepperIndex] = useState(0);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [formData, setFormData] = useState({
-    userId: '',
-    fullName: '',
-    age: '',
-    website: '',
-    photo: null,
-    gender: '',
-    category: [],
+    basicDetails: {},
+    termsAccepted: false,
   });
-  const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    const userIdFromCookie = Cookies.get('userId');
-    const userIdFromState = location.state?.userId;
+  const handleBasicDetailsChange = (data) => {
     setFormData((prevData) => ({
       ...prevData,
-      userId: userIdFromCookie || userIdFromState || '',
+      basicDetails: data,
     }));
-  }, [location]);
+  };
+
+  const nextStep = () => {
+
+    if (stepperIndex < 3) {
+      setStepperIndex(stepperIndex + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (stepperIndex > 0) {
+      setStepperIndex(stepperIndex - 1);
+    }
+  };
+
+  console.log(stepperIndex);
+  return (
+    <>
+      <div className=' w-fullh-[580px]  items-center  lg:h-screen flex text-10px bgSignUp   text-[8px] sm:text-[7px] mdm:text-[10px]'>
+
+        {/* Middle Container */}
+        <motion.div layout className={`${stepperIndex < 3 ? "xs:w-10/12" : 'xs:w-11/12'} mx-auto   BarColor my-10 h-[650px] xs:h-[650px] sm:h-[550px] mdm:h-[520px]    xs:rounded-3xl  overflow-hidden  relative  `}>
+
+          <div className="flex flex-col mx-2 xs:mx-5 md:mx-10    pt-2">
+
+            <div className="flex justify-between  items-center" >
+              <img className="bg-transparent w-44 xs:w-40 md:w-44 lg:w-56 " src="/Logo/LogoText.jpg" alt="" />
+              <h1 className=" BlackButtonWithText-v1 hidden sm:flex poppins-semibold border-2 text-center text-white rounded-xl bg-black h-[34px]    items-center  text-[7px]  sm:text-[10px] px-4    " > Home</h1>
+            </div>
+            <div className="w-[290px] md:w-[700px] mt-10 mx-auto xs:flex justify-between items-center">
+
+              {stepperIndex > 0 && stepperIndex < 2 ? <img className="cursor-pointer w-[15px] h-[15px] sm:w-[20px] sm:h-[20px]  mb-3 xs:mb-0" onClick={prevStep} src="/Svg/BackButton.svg" /> : ""}
+
+              <div className="w-[190px] mx-auto xs:flex-grow ">
+                {stepperIndex < 2 ? <NavBar
+                  stepperIndex={stepperIndex}
+                  nextStep={nextStep}
+                  prevStep={prevStep}
+                  setStepperIndex={setStepperIndex}
+                  check={false} 
+                  // Check to remove the Company Details from the Component shared by all
+                /> : ""}
+
+              </div>
+            </div>
+
+            <motion.img layout initial={{ y: 100 }} animate={{ y: 0 }} className={` absolute  hidden md:block   z-20 -right-[150px] -bottom-24 -z-10"`} src="/Images/Mask_Group.png" alt="" />
+
+            <div className="mx-auto xs:justify-center   flex items-center h-[300px]  mt-5 sm:mt-0 ">
+              <div className="">
+                <div className="">
+                  {stepperIndex == 0 ? <BasicDetails stepperIndex={stepperIndex} nextStep={nextStep} onChange={handleBasicDetailsChange} /> : ""}
+                  {stepperIndex == 1 ? <TermsAndConditions stepperIndex={stepperIndex} data={formData.basicDetails} nextStep={nextStep} /> : ""}
+                  {stepperIndex == 2 ? <Welcome data={formData} /> : ""}
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* Example of controlling the stepper */}
+
+          </div>
+        </motion.div>
+      </div>
+    </>
+  )
+}
+
+
+
+const BasicDetails = ({ nextStep, onChange }) => {
+  const [data, setData] = useState({
+    fullName: '',
+    userName: '',
+    gender: 'Male',
+    age: '',
+    category: '',
+    photo: null,
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false); // New state for loading
+  const url = `${import.meta.env.VITE_SERVER_BASE_URL}`;
 
   const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    if (type === 'file') {
-      setFormData({ ...formData, [name]: files[0] });
-    } else if (type === 'select-multiple') {
-      setFormData({ ...formData, [name]: Array.from(e.target.selectedOptions, option => option.value) });
+    const { name, value } = e.target;
+    setData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+    setError('');
+    onChange(data);
+  };
+
+  const handleImageChange = (imageFile) => {
+    setData((prevData) => ({
+      ...prevData,
+      photo: imageFile,
+    }));
+    setError('');
+  };
+
+  const isDataComplete = () => {
+    return (
+      data.fullName &&
+      data.userName &&
+      data.age &&
+      data.gender &&
+      data.category &&
+      data.photo
+    );
+  };
+
+  const handleNext = async () => {
+    if (!data.fullName) {
+      setError('Please enter your full name.');
+    } else if (!data.userName) {
+      setError('Please enter your user name.');
+    } else if (!data.age) {
+      setError('Please enter your age.');
+    } else if (!data.category) {
+      setError('Please select a category.');
+    } else if (!data.photo) {
+      setError('Please upload an image.');
     } else {
-      setFormData({ ...formData, [name]: value });
+      setError('');
+      setLoading(true); // Set loading to true
+
+      // try {
+      //   const response = await axios.post(`${url}/api/users/Influnencer/CompleteProfile/check-InfluencerName`, { userName: data.userName });
+
+      //   if (response.data.exists) {
+      //     setError('This brand name is already taken. Please choose a different name.');
+      //   } else {
+          setError('');
+          onChange(data);
+          nextStep();
+        // }
+      // } catch (error) {
+      //   console.error('Error checking brand name:', error);
+      //   setError('An error occurred while checking the brand name. Please try again.');
+      // } finally {
+      //   setLoading(false); // Set loading to false
+      // }
     }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    setFormData({ ...formData, photo: file });
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleTermsAccept = (accepted) => {
-    setTermsAccepted(accepted);
-  };
-
-  const isValidInstagramLink = (url) => {
-    const regex = /^https:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9._-]+\/?(?:\?[^\s]*)?$/;
-    return regex.test(url);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-  
-    const { userId, fullName, age, website, photo, gender, category } = formData;
-  
-    // Check if all fields are filled
-    if (!userId || !fullName || !age || !website || !photo || !gender || category.length === 0) {
-      alert('Please fill in all fields.');
-      return;
-    }
-  
-    // Check if age is a numeric value and at least 18
-    if (!/^\d+$/.test(age)) {
-      alert('Age must be a numeric value.');
-      return;
-    } else if (parseInt(age, 10) < 18) {
-      alert('Age must be at least 18.');
-      return;
-    }
-  
-    // Check if the website link is a valid Instagram link
-    if (!isValidInstagramLink(website)) {
-      alert('Please provide a valid Instagram profile link.');
-      return;
-    }
-  
-    // Check if terms are accepted when on the relevant step
-    if (!termsAccepted && stepperIndex === 1) {
-      alert('Please accept the terms and conditions.');
-      return;
-    }
-  
-    // Prepare form data
-    const data = new FormData();
-    data.append('userId', userId);
-    data.append('fullName', fullName);
-    data.append('age', age);
-    data.append('website', website);
-    if (photo) {
-      data.append('photo', photo);
-    }
-    data.append('gender', gender);
-    data.append('category', JSON.stringify(category));
-  
-    // Submit form or move to the next step
-    if (stepperIndex === 1) {
-      setLoading(true);
-      try {
-        await axios.post('/api/influencerInfo', data, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        setStepperIndex(stepperIndex + 1);
-      } catch (error) {
-        console.error('Error submitting form:', error);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setStepperIndex(stepperIndex + 1); // Move to next step
-    }
-  };  
-
-  return (
-    <div className='w-full h-screen items-center sm:h-[550px] lg:h-screen flex text-10px bgSignUp text-[12px]'>
-
-      {/* Middle Container */}
-      <div className={`${stepperIndex < 3 ? "w-10/12" : 'w-11/12'} mx-auto BarColor my-10 h-[350px] xs:h-[400px] sm:h-[520px] rounded-3xl overflow-hidden relative`}>
-
-        <div className="flex flex-col mx-10 pt-2">
-
-          <div className="flex justify-between mx-10 items-center">
-            <img className="bg-transparent w-8 sm:w-12 lg:w-56" src="/Logo/LogoText.jpg" alt="Logo" />
-            <h1 className="BlackButtonWithText-v1 hidden sm:flex poppins-semibold border-2 text-center text-white rounded-xl bg-black h-[34px] items-center text-[7px] sm:text-[10px] px-4">Home</h1>
-          </div>
-          <div className="w-[700px] mt-10 mx-auto flex justify-between items-center">
-            {stepperIndex > 0 && stepperIndex < 2 && (
-              <img
-                className="cursor-pointer"
-                onClick={() => setStepperIndex(stepperIndex - 1)}
-                src="/Svg/BackButton.svg"
-                alt="Back"
-              />
-            )}
-            <div className="flex-grow">
-              {stepperIndex < 2 && (
-                <NavBar
-                  stepperIndex={stepperIndex}
-                  nextStep={() => setStepperIndex(stepperIndex + 1)}
-                  prevStep={() => setStepperIndex(stepperIndex - 1)}
-                  setStepperIndex={setStepperIndex}
-                  check={false}
-                />
-              )}
-            </div>
-          </div>
-
-          <img
-            className="absolute hidden md:block -bottom-28 z-20 -right-[150px] -bottom-2 -z-10"
-            src="/Images/Mask_Group.png"
-            alt="Mask Group"
-          />
-
-          <div className="w-[400px] mx-auto flex items-center h-[300px]">
-            <div>
-              {stepperIndex === 0 && (
-                <CompanyDetails
-                  formData={formData}
-                  handleChange={handleChange}
-                  handleDrop={handleDrop}
-                  handleDragOver={handleDragOver}
-                />
-              )}
-              {stepperIndex === 1 && <TermsAndConditions onAccept={handleTermsAccept} />}
-              {stepperIndex === 2 && <Welcome />}
-              {stepperIndex < 2 && (
-                <div
-                  onClick={handleSubmit}
-                  className="OrangeButtonWithText-v2 flex justify-center py-2 w-[150px] mt-5 mx-auto cursor-pointer"
-                  style={{ opacity: loading ? 0.6 : 1 }} // Disable button appearance when loading
-                  disabled={loading} // Disable button interaction when loading
-                >
-                  {loading ? "Loading..." : "Next"}
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  );
-};
-
-const CategoryItem = ({ value, onClick, selected }) => {
-  return (
-    <div
-      onClick={() => onClick(value)}
-      className={`p-2 cursor-pointer rounded-xl border ${
-        selected ? 'bg-[#FB773F] text-white' : 'bg-white text-black'
-      }`}
-    >
-      {value}
-    </div>
-  );
-};
-
-const CompanyDetails = ({ formData, handleChange, handleDrop, handleDragOver }) => {
-  const [selectedCategories, setSelectedCategories] = useState(formData.category);
-
-  const handleCategoryClick = (category) => {
-    setSelectedCategories((prevCategories) => {
-      const newCategories = prevCategories.includes(category)
-        ? prevCategories.filter((item) => item !== category)
-        : [...prevCategories, category];
-
-      if (newCategories.length > 2) {
-        alert('You can select a maximum of 2 categories.');
-        return prevCategories;
-      }
-
-      handleChange({ target: { name: 'category', value: newCategories } });
-      return newCategories;
-    });
   };
 
   return (
     <>
-      <img className="hidden md:flex w-96 absolute bottom-2 -left-0 h-[300px] z-20" src="/Svg/SignUp4.svg" alt="" />
-      <div className="w-[500px]">
-        <div className="flex flex-row justify-between">
+      <img className="hidden lg:flex w-96 absolute bottom-2 -left-0 h-[300px] z-20" src="/Svg/SignUp4.svg" alt="" />
+      <div className="sm:items-start flex flex-col items-center justify-center">
+        {loading && (
+          <div className="flex items-center justify-center h-32">
+            <div className="w-16 h-16 border-4 border-t-orange-500 border-solid rounded-full animate-spin"></div>
+          </div>
+        )}
+        <div className="flex flex-col-reverse sm:items-center sm:flex-row justify-between">
           <div>
-            <h5 className="poppins-regular text-xs mt-1 pb-1">Full Name</h5>
+            <h5 className="poppins-regular mt-1">Full Name</h5>
             <input
               name="fullName"
-              value={formData.fullName}
+              className="p-2 poppins-light InputBorder w-[200px] mdm:w-[200px] rounded-xl"
               onChange={handleChange}
-              className="p-2 poppins-light InputBorder w-[250px] rounded-xl"
+              value={data.fullName}
             />
-            <h5 className="poppins-regular text-xs mt-1 pb-1">Website Link</h5>
+            <h5 className="poppins-regular mt-1">User Name</h5>
             <input
-              name="website"
-              value={formData.website}
+              name="userName"
+              className="p-2 poppins-light InputBorder w-[200px] mdm:w-[250px] rounded-xl"
               onChange={handleChange}
-              className="p-2 poppins-light InputBorder w-[350px] rounded-xl"
+              value={data.userName}
             />
           </div>
-          <div
-            className="ml-3 h-28 rounded-full w-28 border-2 flex flex-col items-center justify-center drag-drop-area"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-          >
-            {formData.photo ? (
-              <img src={URL.createObjectURL(formData.photo)} alt="Uploaded" className="h-full w-full object-cover rounded-full" />
-            ) : (
-              <>
-                <p className="poppins-light text-xs text-center">Drag & Drop Photo</p>
-                <input type="file" name="photo" className="hidden" onChange={handleChange} />
-              </>
-            )}
+          <div className="mt-36 sm:mt-0">
+            <PhotoUpload onImageChange={handleImageChange} />
           </div>
         </div>
-        <div className="flex flex-row gap-2 mt-3">
-          <div className="w-[50%]">
-            <h5 className="poppins-regular text-xs">Gender</h5>
+
+        <div className="flex flex-col-reverse sm:flex-row gap-2 mt-3">
+          <div>
+            <h5 className="poppins-regular">Gender</h5>
             <select
-              name="gender"
-              value={formData.gender}
-              onChange={handleChange}
               className="p-2 poppins-light InputBorder rounded-xl w-full"
+              name="gender"
+              onChange={handleChange}
+              value={data.gender}
             >
-              <option className='poppins-light' value="">Select</option>
-              <option className='poppins-light' value="Male">Male</option>
-              <option className='poppins-light' value="Female">Female</option>
-              <option className='poppins-light' value="Other">Other</option>
+              <option className="poppins-light" value="Male">Male</option>
+              <option className="poppins-light" value="Female">Female</option>
+              <option className="poppins-light" value="Other">Other</option>
             </select>
           </div>
           <div>
-            <h5 className="poppins-regular text-xs">Enter Your Age</h5>
-            <InputField
+            <h5 className="poppins-regular">Enter Your Age</h5>
+            <input
               name="age"
-              value={formData.age}
+              type="number"
+              min="18"
+              className="p-2 poppins-light InputBorder w-full rounded-xl"
               onChange={handleChange}
+              value={data.age}
             />
           </div>
         </div>
-        <h5 className="poppins-regular text-xs mt-3 pb-1">Category</h5>
-        <div className='flex flex-row mt-1 gap-2'>
-          {['Clothing', 'Watches', 'Shampoo', 'Other'].map((category) => (
-            <CategoryItem
-              key={category}
-              value={category}
-              onClick={handleCategoryClick}
-              selected={selectedCategories.includes(category)}
-            />
-          ))}
+
+        <h5 className="poppins-regular mt-3 pb-1">Category</h5>
+        <div className="flex flex-row mt-1 gap-2 flex-wrap justify-center">
+          <RoundedBox
+            value="Fashion"
+            isSelected={data.category === 'Fashion'}
+            onClick={() =>
+              handleChange({
+                target: { name: 'category', value: 'Fashion' },
+              })
+            }
+          />
+          <RoundedBox
+            value="Travel"
+            isSelected={data.category === 'Travel'}
+            onClick={() =>
+              handleChange({
+                target: { name: 'category', value: 'Travel' },
+              })
+            }
+          />
+          <RoundedBox
+            value="Media"
+            isSelected={data.category === 'Media'}
+            onClick={() =>
+              handleChange({
+                target: { name: 'category', value: 'Media' },
+              })
+            }
+          />
+          <RoundedBox
+            value="Other"
+            isSelected={data.category === 'Other'}
+            onClick={() =>
+              handleChange({
+                target: { name: 'category', value: 'Other' },
+              })
+            }
+          />
         </div>
+
+        <div
+          onClick={handleNext}
+          className={`OrangeButtonWithText-v2 flex justify-center py-2 w-[100px] xs:w-[150px] mt-3 xs:mt-5 mx-auto ${!isDataComplete() ? 'cursor-not-allowed' : 'cursor-pointer'
+            }`}
+        >
+          Next
+        </div>
+        {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
       </div>
     </>
   );
 };
 
-const TermsAndConditions = ({ onAccept }) => {
-  const [accepted, setAccepted] = useState(false);
 
-  const handleChange = (e) => {
+
+
+const TermsAndConditions = ({ nextStep, data }) => {
+  console.log(data);
+
+  const url = `${import.meta.env.VITE_SERVER_BASE_URL}`;
+  const userId =  Cookies.get('userId');
+
+  const [accepted, setAccepted] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const handleCheckboxChange = (e) => {
     setAccepted(e.target.checked);
   };
 
-  useEffect(() => {
-    onAccept(accepted);
-  }, [accepted, onAccept]);
+  const handleNext = async () => {
+    if (accepted) {
+      const formData = new FormData();
+      formData.append('userId',userId)
+      formData.append('fullName', data.fullName);
+      // formData.append('userName', data.userName);
+      formData.append('gender', data.gender);
+      formData.append('age', data.age);
+      formData.append('category', JSON.stringify([data.category]));
+      formData.append('photo', data.photo); // Append the photo file
+      const token = Cookies.get('token');
+      try {
+        // Replace with your API URL
+        const response = await axios.post(`http://localhost:3000/api/influencerInfo`, formData, {
+          
+          withCredentials: true,
+        });
+  
+        // Handle success response
+        console.log(response.data);
+        setMessage(response.data.message);
+  
+        // Only proceed to the next step if there was no error
+        nextStep();
+      } catch (error) {
+        // Handle error response
+        console.error(error);
+        setError(error.response?.data?.message || "Something went wrong");
+      }
+    }
+  };
+  
 
   return (
     <>
-      <img className="hidden md:flex w-96 h-[250px] mt-10 z-20" src="/Svg/SignUp3.svg" alt="" />
-      <div className="w-[500px] flex mt-3 items-center">
-        <input type="checkbox" checked={accepted} onChange={handleChange} />
+      <img className="md:flex w-60 xs:w-96 h-[150px] xs:h-[250px] mt-3 z-20" src="/Svg/SignUp3.svg" alt="" />
+
+      <div className="sm:w-[500px] flex mt-3">
+        <input
+          type="checkbox"
+          checked={accepted}
+          onChange={handleCheckboxChange}
+          id="terms-checkbox"
+        />
         <h1 className="ml-2">I confirm that I have read and accept the terms and conditions and privacy policy.</h1>
       </div>
+
+      <div
+        onClick={handleNext}
+        className={`OrangeButtonWithText-v2 flex justify-center py-2 w-[100px] xs:w-[150px] mt-3 xs:mt-5 mx-auto ${!accepted ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+          }`}
+        style={{ pointerEvents: accepted ? 'auto' : 'none' }} // Ensure the button is not clickable when disabled
+      >
+        Next
+      </div>
+      {message && <p style={{ color: "black" }}>Account Created Successfully</p>}
+      {error && <p style={{ color: "red" }}>Something Went wrong+{error}</p>}
     </>
   );
 };
 
+
+
+
 const Welcome = () => {
-  const [isLoading, setIsLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  const handleGetStarted = async () => {
-    setIsLoading(true);
+  return (
+    <>
+      <div>
 
-    try {
-      const token = localStorage.getItem('authToken');
-      console.log(token);
+      </div>
+      <h1 className="text-xl poppins-semibold text-center mb-5">Account successfully created!</h1>
+      <img className="hidden md:flex w-96  h-[300px] z-20 " src="/Svg/Welcome.svg" alt="" />
+      <div onClick={() => {
+        const setCookieAndNavigate = async () => {
+          // Set the cookie and wait for it to be set
 
-      if (!token) {
-        alert('No authentication token found. Please sign up again.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Verify the token or perform login with the token
-      const response = await axios.get('/auth/verifyToken', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.status === 200) {
-        await setCookie('yourCookieName', 'i', { expires: 7 });
-        setTimeout(() => {
+          // Navigate to the home page after the cookie is set
           navigate('/');
-          setIsLoading(false);
-        }, 1000); // 1-second delay
-      } else {
-        navigate('/Login');
-        alert('Token verification failed. Please log in again.');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Error during token verification:', error);
-      alert('An error occurred during verification.');
-      setIsLoading(false);
+
+        };
+        setCookieAndNavigate();
+      }} className="  OrangeButtonWithText-v2 flex justify-center  py-2  w-[150px]  mt-5 mx-auto  cursor-pointer ">
+        <p >{"Get Started"}</p>
+      </div>
+    </>
+  )
+}
+
+const RoundedBox = ({ value, isSelected, onClick }) => {
+  return (
+    <div
+      onClick={() => onClick(value)}
+      className={` z-20 InputBorder w-[40px] mdm:w-20 flex flex-row justify-center py-2 rounded-xl poppins-light ${isSelected ? 'bg-orange-500 text-white' : ''}`}
+    >
+      <p>{value}</p>
+    </div>
+  );
+};
+
+const PhotoUpload = ({ onImageChange }) => {
+  const [image, setImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setImage(imageUrl);
+      onImageChange(file); // Pass the file itself to the parent component
     }
   };
 
-  const setCookie = (name, value, options) => {
-    return new Promise((resolve) => {
-      Cookies.set(name, value, options);
-      resolve(); // Resolve the promise once the cookie is set
-    });
+  const handleDivClick = () => {
+    fileInputRef.current.click();
   };
 
   return (
-    <>
-      <h1 className="text-xl poppins-semibold text-center mb-5">Account successfully created!</h1>
-      <img className="hidden md:flex w-96 h-[300px] z-20" src="/Svg/Welcome.svg" alt="" />
-      <div
-        onClick={handleGetStarted}
-        className="OrangeButtonWithText-v2 flex justify-center py-2 w-[150px] mt-5 mx-auto cursor-pointer"
-      >
-        <p>
-          {isLoading ? "Loading..." : "Get Started"}
-        </p>
+    <div
+      className={`h-20 w-20 mx-auto sm:h-28 sm:w-28 rounded-full flex flex-col items-center justify-center cursor-pointer ${image ? '' : 'border-2'}`}
+      onClick={handleDivClick}
+    >
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+        ref={fileInputRef}
+      />
+      <div className={`flex items-center justify-center ${!image ? "w-[50px]" : "w-[100px]"}`}>
+        <img
+          src={image || '/Svg/Upload.svg'}
+          alt="Upload"
+          className={`${!image ? "w-[25px] h-[25px]" : "w-[100px] h-[100px]"} Avatar rounded-full`}
+        />
       </div>
-    </>
+      {!image && <p className="poppins-light ">Upload Photo</p>}
+    </div>
   );
 };
 
-const InputField = ({ name, value, onChange }) => {
-  return (
-    <input
-      name={name}
-      value={value}
-      onChange={onChange}
-      className="p-2 poppins-light InputBorder w-[200px] rounded-xl"
-    />
-  );
-};
-
-export default InfluencerSignUp;
+export default InfluencerSignUp

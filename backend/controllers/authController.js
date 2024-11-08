@@ -48,6 +48,8 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'User does not exist' });
 
+    
+
     if (userType && user.userType !== userType) {
       return res.status(400).json({ message: 'User type does not match' });
     }
@@ -92,17 +94,19 @@ export const getUserID = (req, res) => {
 
 export const verifyToken = async (req, res) => {
   const authHeader = req.headers.authorization;// Authorization token
-
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authorization token is missing or invalid' });
   }
-
   const token = authHeader.split(' ')[1];
+  console.log("user is ")
+  console.log(token)
+
 
   if (!token) return res.status(400).json({ message: 'Token is required' });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  
     const user = await User.findById(decoded.id);
 
     if (!user) return res.status(400).json({ message: 'User not found' });

@@ -1,18 +1,26 @@
 import mongoose from "mongoose";
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   userName: { type: String },
   password: { type: String, required: true },
   userType: { type: String, required: true }, // Could be 'brand', 'influencer', etc.
-  status: { type: String, default: "incomplete" },
+  status: { type: Boolean, default: false },
   verified: { type: Boolean },
+  verifiedEmail: { type: Boolean ,default:false},
+  
   earnings: { type: Number },
 
   // Common Fields
   fullName: { type: String },
   age: { type: Number },
-  website: { type: String },
+  website: { type: String ,default:"Check db"},
+  // Instagram id for influnencer
+  // Website for Brand
+
+  InstagramId:{ type: String ,default:"Check db"},
   photo: { type: String },
   gender: { type: String },
   followers: { type: Number },
@@ -42,5 +50,16 @@ const userSchema = new mongoose.Schema({
   // Influencer-Specific Fields
   groups: { type: Number }, // Number of groups influencer is part of
 },{ timestamps: true });
+userSchema.methods.setPassword = async function (password) {
+  const salt = await bcrypt.genSalt(Number(process.env.SALT));
+  this.password = await bcrypt.hash(password, salt);
+};
+
+userSchema.methods.generateAuthToken = function () {
+	const token = jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+		expiresIn: "7d",
+	});
+	return token;
+};
 
 export default mongoose.model("User", userSchema);

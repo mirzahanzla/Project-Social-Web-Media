@@ -46,7 +46,7 @@ const UserDashBoard = () => {
 
     let menuItems = [
       { icon: <SearchIcon color="white" />, label: 'Search', navigate: "/Search" },
-      { icon: <HomeIcon color="white" />, label: 'Dashboard', navigate: "/*Dashboard" },
+      { icon: <HomeIcon color="white" />, label: 'Dashboard', navigate: "/Dashboard" },
       { icon: <SavedIcon color="white" />, label: 'Saved Network', navigate: "/Saved" },
       { icon: <GroupIcon color="white" />, label: 'Blog Posts', navigate: "/Blog" },
       { icon: <Message color="white" />, label: 'Message', navigate: "/Message" },
