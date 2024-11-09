@@ -20,9 +20,19 @@ const Message = () => {
   const [loggedInUserId, setLoggedInUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedUserImage, setSelectedUserImage] = useState("");
+  // const [lastMessages, setLastMessages] = useState({});
+  const [latestMessages, setLatestMessages] = useState({});
+  const [noMessagesFound, setNoMessagesFound] = useState(false);
   // const location = useLocation(); // Retrieve location state
+  
+  const [showGroupOptions, setShowGroupOptions] = useState(false);
   const [userStatus, setUserStatus] = useState({});
-
+  const [selectedGroup, setSelectedGroup] = useState(null); // Active group ID
+  const [groupTitle, setGroupTitle] = useState(""); // Active group title
+  // eslint-disable-next-line no-unused-vars
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState([]);
+  const [admin, setAdmin] = useState({}); // Active group members
+  const [selectedGroupImage, setSelectedGroupImage] = useState(""); // Active group image
   const [groups, setGroups] = useState([]);
   // const newGroupId = location.state?.newGroupId;
   const [contacts, setContacts] = useState([]);
@@ -32,6 +42,7 @@ const Message = () => {
   const socketRef = useRef(null);
   const [selectedUserName, setSelectedUserName] = useState(""); // New state to hold the selected user's name
   const [selectedChatId, setSelectedChatId] = useState(null); // Store the selected chat's ID
+  // const [conversations, setConversations] = useState({}); // Stores conversations by sender ID
 
   // Function to generate chatId based on the sender and receiver IDs
   const generateChatId = (senderId, receiverId) => {
@@ -48,35 +59,75 @@ const Message = () => {
     const userId = loggedInUserId;
     if (userId) {
       socketRef.current.emit("join", userId);
-      socketRef.current.emit("userOnline", userId); // Notify server of user online status
+      socketRef.current.emit("userOnline", userId); // Notify server of user online status??
+  }
+    
+  // Remove existing listener
+  socketRef.current.off("receiveGroupMessage");
+      // Listen for group messages in real time
+    socketRef.current.on("receiveGroupMessage", (data) => {
+      console.log("Received group message:", data);
+      if (socketRef.current && socketRef.current.adapter) {
+        socketRef.current.adapter.someFunction();
+      }
+
+      if (data.groupId === selectedGroup) {
+        // Ensure message is for the selected group
+        setMessages((prevMessages) => [...prevMessages, data]);
+      }
+  });
+
+
+
+  socketRef.current.on("receiveMessage", async (data) => {
+    console.log("Data received:", data);
+  
+    // Check if the message is intended for the logged-in user
+    if (data.receiver !== loggedInUserId) {
+      console.log("Message received but not intended for this user:", data);
+      return; // Ignore messages not intended for this user
     }
-
-    // // Socket listener to handle real-time incoming messages
-    // socketRef.current.on("receiveMessage", (data) => {
-    //   if (data.chatId === selectedChatId) {
-    //     setMessages((prevMessages) => [...prevMessages, data]);
-    //   } else {
-    //     console.log("Message belongs to a different chat, ignoring.");
-    //   }
-    // });
-
-    socketRef.current.on("receiveMessage", (data) => {
+  
+    // Extract the sender's ID from selectedChatId
+    const selectedSenderId = selectedChatId ? selectedChatId.split("-")[0] : null;
+  
+    // Update messages if the sender is the currently selected chat
+    if (data.sender === selectedSenderId) {
       setMessages((prevMessages) => [...prevMessages, data]);
-
-      // Update the recent chats list or contacts list dynamically
-      setContacts((prevContacts) => {
-        const existingContact = prevContacts.find(
-          (contact) => contact._id === data.sender
-        );
-        if (!existingContact) {
-          return [
-            { _id: data.sender, fullName: data.senderName },
-            ...prevContacts,
-          ];
-        }
-        return prevContacts;
-      });
+    }
+  
+    console.log("Received message from:", data.sender);
+  
+    // Update latestMessages with the latest message for the contact
+    setLatestMessages((prevLatestMessages) => ({
+      ...prevLatestMessages,
+      [data.sender]: data, // Set the latest message for the sender
+    }));
+  
+    // Update contacts to move the sender to the top of the list
+    setContacts((prevContacts) => {
+      const existingContactIndex = prevContacts.findIndex(
+        (contact) => contact.id === data.sender
+      );
+  
+      if (existingContactIndex === -1) {
+        const contactData = {
+          id: data.sender,
+          fullName: data.senderName || "Unknown",
+          photo: data.senderPhoto || "default-photo-url",
+        };
+        return [contactData, ...prevContacts];
+      }
+  
+      const updatedContacts = [...prevContacts];
+      const [contact] = updatedContacts.splice(existingContactIndex, 1);
+      updatedContacts.unshift(contact);
+  
+      return updatedContacts;
     });
+  });
+  
+    
 
     // Listen for online status updates
     socketRef.current.on("userOnline", (userId) => {
@@ -93,11 +144,6 @@ const Message = () => {
       }));
     });
 
-    // Handle group message updates
-    socketRef.current.on("receiveGroupMessage", (data) => {
-      setMessages((prevMessages) => [...prevMessages, data]);
-    });
-
     // Handle connection error
     socketRef.current.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
@@ -112,7 +158,7 @@ const Message = () => {
     return () => {
       socketRef.current.disconnect();
     };
-  }, [loggedInUserId, selectedChatId]);
+  }, [loggedInUserId, selectedChatId, selectedGroup]);
 
   const LoadingSpinner = () => (
     <div className="flex justify-center mt-5">
@@ -169,6 +215,15 @@ const Message = () => {
     }
   }, [loggedInUserId]);
 
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      // Existing code to fetch contacts or groups
+    };
+
+    fetchContacts();
+  }, []);
+
   useEffect(() => {
     // Skip fetching if user ID is not available
     if (!loggedInUserId) return;
@@ -178,6 +233,10 @@ const Message = () => {
       try {
         const response = await axios.get(`/api/groups/${loggedInUserId}`);
         setGroups(response.data.groups || []); // `response.data.groups` should contain the groups array
+        console.log(
+          "Grouips -------------------Testing-----------",
+          response.data.groups
+        );
       } catch (error) {
         console.error("Error fetching groups:", error);
       } finally {
@@ -188,13 +247,8 @@ const Message = () => {
     // Fetch groups only if loggedInUserId has changed
     fetchGroups();
   }, [loggedInUserId]);
-  const [showGroupOptions, setShowGroupOptions] = useState(false);
-  const [selectedGroup] = useState(null);
 
-  // const toggleGroupOptions = (group) => {
-  //   setSelectedGroup(group); // Set the selected group
-  //   setShowGroupOptions(!showGroupOptions); // Toggle the visibility of the popup
-  // };
+
 
   const modifyGroup = async (groupId) => {
     try {
@@ -208,13 +262,6 @@ const Message = () => {
         updatedGroup
       );
       console.log("Group modified:", response.data);
-
-      //   // Update local state with the updated group
-      //   setGroups((prevGroups) =>
-      //     prevGroups.map((group) =>
-      //       group._id === groupId ? { ...group, ...updatedGroup } : group
-      //     )
-      //   );
     } catch (error) {
       console.error("Error modifying group:", error);
     }
@@ -226,30 +273,106 @@ const Message = () => {
       prevGroups.filter((group) => group._id !== groupId)
     );
   };
-
-  const handleSelectGroup = async (group) => {
-    setSelectedMember(group._id);
-    setSelectedUserName(group.title);
+  const handleSelectGroup = (group) => {
+    const groupId = group._id;
+  
+    // If the group is already selected, prevent refetching messages
+    if (groupId === selectedGroup) {
+      return; // Don't proceed if the same group is clicked
+    }
+  
+    setSelectedGroup(groupId);
+    setGroupTitle(group.title);
+    setSelectedGroupMembers(group.members);
+    setAdmin(group.admin);
+    setSelectedGroupImage(group.photo || "");
+  
+    setSelectedMember(null);
+    setSelectedChatId(groupId); // Set the group as the chat ID to listen for messages
+  
     setShowMessage(true);
-
-    const chatId = group._id; // Assuming each group has a unique ID as chatId
-    setSelectedChatId(chatId);
-
+    setMessages([]); // Clear messages when a new group is selected
+  
+    // Remove previous listeners to prevent duplicate messages
+    socketRef.current.off("receiveGroupMessage");
+  
+    // Listen for messages in the newly joined group
+    socketRef.current.on("receiveGroupMessage", (data) => {
+      if (data.groupId === groupId) {
+        setMessages((prevMessages) => [...prevMessages, data]);
+      }
+    });
+  
+    // Fetch messages only if it's a new group (not the same one clicked again)
+    if (!chats[groupId]) {
+      fetchMessagesForGroup(groupId); // Fetch messages for the newly selected group
+    } else {
+      setMessages(chats[groupId]); // Set the messages from the existing chats state if already fetched
+    }
+  };
+  
+  // useEffect to handle socket events for joining and leaving groups
+  useEffect(() => {
+    if (selectedGroup) {
+      const userId = loggedInUserId;
+  
+      // Leave the current group when switching
+      if (selectedGroup) {
+        socketRef.current.emit("leaveGroup", { groupId: selectedGroup, userId });
+      }
+  
+      // Join the new group room
+      socketRef.current.emit("joinGroup", { groupId: selectedGroup, userId });
+    }
+  }, [selectedGroup, loggedInUserId]);
+  
+  // Function to fetch messages for a specific group
+  const fetchMessagesForGroup = async (groupId) => {
     try {
-      const response = await axios.get(`/api/messages/group/${chatId}`);
-      setMessages(response.data);
+      const response = await axios.get(`/api/groups/${groupId}/messages`);
+      setMessages(response.data.messages || []); // Update messages from the API response
     } catch (error) {
       console.error("Error fetching group messages:", error);
     }
   };
-
+  
+  // useEffect to fetch messages when the group is selected
   useEffect(() => {
-    const fetchContacts = async () => {
-      // Existing code to fetch contacts or groups
-    };
+    if (selectedGroup) {
+      // Only fetch if messages are not already present
+      if (!chats[selectedGroup]) {
+        fetchMessagesForGroup(selectedGroup);
+      }
+    } else {
+      setMessages([]); // Clear messages if no group is selected
+    }
+  }, [selectedGroup]);
+  
+  
+  const handleSendGroupMessage = () => {
+    if (newMessage.trim()) {
+      const messageToSend = {
+        text: newMessage,
+        sender: loggedInUserId,
+        groupId: selectedGroup,
+        timestamp: new Date().toISOString(),
+      };
 
-    fetchContacts();
-  }, []);
+      // Emit the message to the server
+      socketRef.current.emit("sendGroupMessage", messageToSend);
+
+      // Log group and sender info
+      console.log("Sending message to group:", selectedGroup);
+      console.log("Sender ID:", loggedInUserId);
+
+      // Clear the input field after sending
+      setNewMessage("");
+    } else {
+      console.warn("Cannot send an empty message");
+    }
+  };
+
+
 
   // Debounced search function
   const handleSearch = debounce(async () => {
@@ -294,6 +417,9 @@ const Message = () => {
     };
   }, [searchQuery]); // Only re-run if searchQuery changes
 
+
+
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       // Generate chat ID if not already set
@@ -316,10 +442,10 @@ const Message = () => {
       try {
         // Emit the message to the server
         socketRef.current.emit("sendMessage", messageToSend);
-
-        // Update local state to display the sent message
         setMessages((prevMessages) => [...prevMessages, messageToSend]);
-        setNewMessage(""); // Clear the input field
+
+        // Clear the input field
+        setNewMessage("");
       } catch (error) {
         console.error("Error sending message:", error);
       }
@@ -328,59 +454,139 @@ const Message = () => {
     }
   };
 
+  // Listen for messages from the server
+  useEffect(() => {
+    const handleReceiveMessage = () => {
+    };
+
+    // Set up the listener for incoming messages
+    socketRef.current.on("receiveMessage", handleReceiveMessage);
+
+    // Cleanup listener when the component is unmounted
+    return () => {
+      socketRef.current.off("receiveMessage", handleReceiveMessage);
+    };
+  }, []);
+
   const handleSelectMember = (user) => {
     const userId = user._id || user.id;
     if (!userId) return;
 
     const chatId = generateChatId(loggedInUserId, userId);
+    console.log("created id", chatId);
     setSelectedMember(userId);
     setSelectedUserName(user.fullName || "");
     setSelectedUserImage(user.photo || "");
     setSelectedChatId(chatId);
     setShowMessage(true);
+    // Clear selected group when a member is selected
+    setSelectedGroup(null);
 
     if (!contacts.some((contact) => contact._id === user._id)) {
       setContacts((prevContacts) => [user, ...prevContacts]);
     }
+    // Leave previous chat if any
+    if (selectedChatId) {
+      socketRef.current.emit("leaveChat", {
+        chatId: selectedChatId,
+        userId: loggedInUserId,
+      });
+    }
 
-    socketRef.current.emit("leaveChat", selectedChatId); // Leave the previous chat
-    socketRef.current.emit("joinChat", { chatId }); // Join the new chat
+    // Join new chat
+    socketRef.current.emit("joinChat", { chatId, userId: loggedInUserId });
 
     if (chats[chatId]) {
-      setMessages(chats[chatId]);
+      fetchMessagesForChat(chatId, userId);
+      // setMessages(chats[chatId]);
     } else {
       setMessages([]);
       fetchMessagesForChat(chatId, userId);
     }
   };
 
-  const fetchMessagesForChat = async (chatId, userId) => {
-    if (!chatId || !userId) {
-      console.error("fetchMessagesForChat: chatId or userId is undefined");
-      return;
-    }
 
-    try {
-      const response = await axios.get(
-        `/api/messages/chat/${chatId}?userId=${userId}`
-      );
-      console.log("Chat ID:", chatId);
-      console.log("User ID:", userId);
 
-      if (Array.isArray(response.data)) {
+
+
+    const fetchMessagesForChat = async (chatId, userId) => {
+  if (!chatId || !userId) {
+    console.error("fetchMessagesForChat: chatId or userId is undefined");
+    return;
+  }
+
+  try {
+    const response = await axios.get(
+      `/api/messages/chat/${chatId}?userId=${userId}`
+    );
+    console.log("Chat ID:", chatId);
+    console.log("User ID:", userId);
+
+    // Check if the response contains an array of messages
+    if (Array.isArray(response.data)) {
+      if (response.data.length === 0) {
+        // No previous messages found, handle this case
+        console.log("No previous chat history found");
+        setMessages([]); // Clear any existing messages
+        setChats((prevChats) => ({
+          ...prevChats,
+          [chatId]: [],
+        }));
+        // Optionally, show a message to inform the user
+        setNoMessagesFound(true); // Set a state to show "No previous chat"
+      } else {
+        // Messages found, update the state with fetched messages
+        const lastMessage = response.data[response.data.length - 1]; // Get the last message
         setMessages(response.data);
         setChats((prevChats) => ({
           ...prevChats,
           [chatId]: response.data,
         }));
-      } else {
-        console.error("Unexpected response format:", response.data);
+        setNoMessagesFound(false); // Reset the state for no messages
+
+        // Set the latest message for the contact
+        setLatestMessages((prevLatestMessages) => ({
+          ...prevLatestMessages,
+          [chatId]: lastMessage, // Update latest message for this chat
+        }));
       }
+    } else {
+      console.error("Unexpected response format:", response.data);
+    }
+  } catch (error) {
+    console.error("Error fetching messages for chat:", error);
+    // Handle the error here
+    setNoMessagesFound(true); // Optionally show an error state if fetching fails
+  }
+};
+
+
+  const fetchLastMessageForChat = async (chatId, userId) => {
+    try {
+      const response = await axios.get(`/api/messages/chat/${chatId}/last-message?userId=${userId}`);
+      return response.data.message; // Return the latest message
     } catch (error) {
-      console.error("Error fetching messages for chat:", error);
+      console.error("Error fetching last message for chat:", error);
+      return null;
     }
   };
 
+   // Fetch the latest message when the component mounts or when user changes
+   useEffect(() => {
+    const fetchMessages = async () => {
+      const tempMessages = {}; // Temporary object to store the latest messages for each user
+      for (let user of searchResults) {
+        const latestMessage = await fetchLastMessageForChat(user.chatId, user._id);
+        if (latestMessage) {
+          tempMessages[user._id] = latestMessage; // Store the latest message for each user
+        }
+      }
+      setLatestMessages(tempMessages); // Update the state with latest messages
+    };
+
+    fetchMessages(); // Call fetchMessages when the component mounts
+  }, [searchResults]); 
+  
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -421,7 +627,6 @@ const Message = () => {
               </div>
             </Link>
           </div>
-
           {/* Search Results Section */}
           {isSearching ? (
             <div className="flex justify-center items-center mt-5">
@@ -448,29 +653,29 @@ const Message = () => {
               )}
             </div>
           )}
+        <div className="ml-10 mr-2 mt-5">
+  <p className="poppins-semibold text-[15px]">Chats</p>
+  {contacts && contacts.length > 0 ? (
+    contacts.map((contact, index) => (
+      <div
+        key={contact._id || index} // Fallback to index if _id is missing
+        onClick={() => handleSelectMember(contact)}
+        className="cursor-pointer"
+      >
+        <InfluncerMessage
+          Image={contact.photo || "default-photo-url"} // Default image if missing
+          Name={contact.fullName || "Unknown"}
+          Time={userStatus[contact._id] ? "Online" : "Offline"}
+          Message={latestMessages[contact.id]?.text}
+        />
+      </div>
+    ))
+  ) : (
+    <p>No members found</p>
+  )}
+</div>
 
-          {/* Members Section */}
-          <div className="ml-10 mr-2 mt-5">
-            <p className="poppins-semibold text-[15px]">Chats</p>
-            {contacts && contacts.length > 0 ? (
-              contacts.map((contact) => (
-                <div
-                  key={contact._id}
-                  onClick={() => handleSelectMember(contact)}
-                  className="cursor-pointer"
-                >
-                  <InfluncerMessage
-                    Image={contact.photo}
-                    Name={contact.fullName}
-                    Time={userStatus[contact._id] ? "Online" : "Offline"}
-                  />
-                </div>
-              ))
-            ) : (
-              <p>No members found</p>
-            )}
-          </div>
-
+          ;
           {showGroupOptions && selectedGroup && (
             <div className="popup-overlay">
               <div className="popup-content">
@@ -480,7 +685,6 @@ const Message = () => {
               </div>
             </div>
           )}
-
           {/* Groups Section */}
           <div className="mt-5 ml-10 mr-2">
             <p className="poppins-semibold text-[15px]">Groups</p>
@@ -495,10 +699,9 @@ const Message = () => {
                     groupId={group._id} // Pass group ID
                     Image={group.photo} // Group image
                     Name={group.title} // Group name
-                    // Unread={group.unreadMessages} // Unread messages count
                     onClick={() => handleSelectGroup(group)} // Group click handler
-                    onDelete={() => deleteGroup(group._id)} // Delete group handler
-                    onModify={() => modifyGroup(group._id)} // Delete group handler
+                    onDelete={() => deleteGroup(group._id)} // Wrap delete in an arrow function
+                    onModify={() => modifyGroup(group._id)} // Modify group handler
                   />
                 </div>
               ))
@@ -509,10 +712,13 @@ const Message = () => {
         </div>
 
         {/* Right Side - Chat Area */}
+        {/* Right Side - Chat Area */}
         <div className={`col-span-8 ${ShowMessage ? "block" : "hidden"}`}>
           {ShowMessage ? (
             <div className="mx-2 relative">
-              {selectedChatId ? ( // Check if chatId exists
+              {selectedGroup ? (
+                // Group Chat Layout
+                // Group Chat Layout
                 <>
                   <div className="flex text-[9px] sm:text-[10px] mdm:text-[12px]">
                     <div
@@ -523,10 +729,46 @@ const Message = () => {
                     </div>
                     <img
                       className="size-[40px] Avatar"
-                      src={selectedUserImage || "/path/to/default/image.jpg"} // Fallback image
-                      alt={selectedMember}
+                      src={selectedGroupImage}
+                      alt={groupTitle}
                     />
+                    <div className="flex flex-1 flex-col ml-2">
+                      <p className="poppins-semibold">{groupTitle}</p>
+                      <p className="text-[10px] text-gray-500 font-bold">
+                        Admin: {admin.fullName},{" "}
+                        {selectedGroupMembers
+                          .map((member) => member.fullName)
+                          .join(", ")}
+                      </p>
+                    </div>
+                  </div>
 
+                  {/* Group Chat messages section */}
+                  <Test
+                    messages={messages}
+                    newMessage={newMessage}
+                    setNewMessage={setNewMessage}
+                    handleSendMessage={handleSendGroupMessage}
+                    messagesEndRef={messagesEndRef}
+                    loggedInUserId={loggedInUserId}
+                    selectedGroupId={selectedGroup}
+                  />
+                </>
+              ) : selectedMember ? (
+                // One-on-One Chat Layout
+                <>
+                  <div className="flex text-[9px] sm:text-[10px] mdm:text-[12px]">
+                    <div
+                      className="flex mr-4 sm:hidden"
+                      onClick={() => setShowMessage(false)}
+                    >
+                      <img src="/Svg/Back.svg" alt="Back" />
+                    </div>
+                    <img
+                      className="size-[40px] Avatar"
+                      src={selectedUserImage || "/path/to/default/image.jpg"}
+                      alt={selectedUserName || "Unknown User"}
+                    />
                     <div className="flex flex-1 flex-col ml-2">
                       <p className="poppins-semibold">
                         {selectedUserName || "Unknown User"}
@@ -542,21 +784,30 @@ const Message = () => {
                       </p>
                     </div>
                   </div>
-                  <Test
-                    messages={messages}
-                    newMessage={newMessage}
-                    setNewMessage={setNewMessage}
-                    handleSendMessage={handleSendMessage}
-                    messagesEndRef={messagesEndRef}
-                    loggedInUserId={loggedInUserId} // Pass the logged-in user ID
-                    selectedMember={selectedMember} // Pass the selected member's ID (receiver ID)
-                  />
+                  {/* Individual Chat messages section */}
+                  {noMessagesFound ? (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-lg text-red-500 font-semibold">
+                        No previous chat history found. Start a new
+                        conversation!
+                      </p>
+                    </div>
+                  ) : (
+                    <Test
+                      messages={messages}
+                      newMessage={newMessage}
+                      setNewMessage={setNewMessage}
+                      handleSendMessage={handleSendMessage}
+                      messagesEndRef={messagesEndRef}
+                      loggedInUserId={loggedInUserId}
+                      selectedMember={selectedMember}
+                    />
+                  )}
                 </>
               ) : (
-                // Show refresh message if chatId is missing
                 <div className="flex items-center justify-center h-full">
                   <p className="text-lg text-red-500 font-semibold">
-                    Chat ID not found. Please refresh the page.
+                    Please select a chat or group to view messages.
                   </p>
                 </div>
               )}

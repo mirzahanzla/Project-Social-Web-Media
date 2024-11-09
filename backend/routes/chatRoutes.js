@@ -1,9 +1,12 @@
 import express from 'express';
-import { getMessagesByMember, getMessagesByChatId, getContacts } from '../controllers/chatController.js';
+import { getMessagesByMember, getMessagesByChatId, getContacts,
+    getLastMessageByChatId 
+} from '../controllers/chatController.js';
 
 const router = express.Router();
 
-
+// Route to get the last message by chatId
+router.get('/chat/:chatId/last-message', getLastMessageByChatId); 
 // Route to get messages by member
 router.get('/messages', getMessagesByMember);
 router.get('/chat/:chatId', getMessagesByChatId);

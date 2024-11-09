@@ -1,5 +1,6 @@
 import Group from '../models/Group.js';
 import Message from '../models/Message.js';
+// import User from '../models/user.js';
 import mongoose from 'mongoose';
 import { storage } from '../config/firebase.js';
 import { ref, uploadBytes, getDownloadURL ,deleteObject } from 'firebase/storage';
@@ -108,13 +109,23 @@ export const getGroups = async (req, res) => {
         { admin: admin },         // Check if the user is the admin
         { members: admin }         // Check if the user is in the members array
       ]
+    }).populate({
+      path: 'members',           // Populate the members field
+      select: 'fullName'         // Only include the userName field for each member
     })
+    .populate({
+      path: 'admin',             // Populate the admin field
+      select: 'fullName'         // Only include the userName field for the admin
+    }).populate({
+      path: 'messages.sender',   // Populate the sender field in each message
+      select: 'fullName'         // Retrieve only the fullName for each sender
+    });
 
     if (groups.length === 0) {
       return res.status(404).json({ message: 'No groups found for this admin' });
     }
 
-    console.log('Fetched groups for admin:', admin, groups);
+    // console.log('Fetched groups for admin:', admin, groups);
     res.status(200).json({ groups });
   } catch (error) {
     console.error('Error fetching groups:', error);
@@ -123,28 +134,28 @@ export const getGroups = async (req, res) => {
 };
 
 
-// Fetch messages for a specific group by groupId
 export const getGroupMessagesByGroupId = async (req, res) => {
   const { groupId } = req.params;
 
   try {
-    // Retrieve messages where groupId matches
-    const messages = await Message.find({ groupId }).sort({ createdAt: 1 });
-
-    if (messages.length > 0) {
-      return res.status(200).json(messages);
-    } else {
-      return res.status(200).json({ message: "No messages found for this group." });
+    // Ensure groupId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ message: 'Invalid Group ID format' });
     }
+
+    // Fetch the group from the database
+    const group = await Group.findById(groupId).populate('messages.sender', 'username fullName');
+    
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    return res.status(200).json({ messages: group.messages });
   } catch (error) {
-    console.error('Error retrieving group messages:', error);
-    return res.status(500).json({ message: 'Error retrieving group messages', error });
+    console.error('Error fetching group messages:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
-
-
-
-
 
 
 

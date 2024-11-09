@@ -16,7 +16,6 @@ const GroupChat = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  
   const deleteGroup = async (groupId) => {
     try {
       console.log("Group deleted:", groupId);

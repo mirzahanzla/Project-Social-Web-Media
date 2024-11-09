@@ -44,15 +44,15 @@ const io = new Server(server, {
 
 app.use(cors({
   origin: 'http://localhost:5173', // Frontend URL
-  credentials: true // If you need to allow cookies or other credentials
+  credentials: true,
 }));
 
 // eslint-disable-next-line no-undef
 const PORT = process.env.PORT || 3000;
 
-
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../dist')));
+// app.use(express.static(path.join(__dirname, '../dist')));
 
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
@@ -77,13 +77,15 @@ const checkFirebaseConnection = async () => {
   }
 };
 
-// app.get('*', (req, res) => {
-//   res.sendFile(path.join(__dirname, '../dist/index.html'));
-// });
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
 
 const userSocketMap = {};
-
+const groupUsers = {};
+let users = {};
 io.on('connection', (socket) => {
+  console.log('New client connected');
   console.log('A user connected:', socket.id);
 
   socket.on('join', async (userId) => {
@@ -110,27 +112,103 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('joinGroup', (groupId) => {
-    socket.join(groupId);
-    console.log(`User ${socket.id} joined group ${groupId}`);
-  });
 
-  socket.on('sendGroupMessage', async ({ groupId, sender, text }) => {
-    try {
-      const newMessage = { sender, text, createdAt: new Date() };
+  socket.on('joinGroup', ({ groupId, userId }) => {
+    socket.join(groupId);
+    console.log(`User ${userId} joined group ${groupId}`);
+    console.log("Current rooms after joining:", io.sockets.adapter.rooms); // Check room map immediately after joining
+  
+    // Ensure user is added to groupUsers object
+    if (!groupUsers[groupId]) groupUsers[groupId] = new Set();
+    groupUsers[groupId].add(userId);
+  
+    // Notify all group members
+    io.to(groupId).emit('userJoined', { userId, message: 'A user has joined the group' });
+  });
+  
+  
+
+// socket.on('sendGroupMessage', async (data) => {
+//   const { text, sender, groupId } = data;
+
+//   // Check if necessary data is present
+//   if (!groupId || !text || !sender) {
+//     console.error('Group message data is incomplete:', data);
+//     return;
+//   }
+
+//   console.log(`Group message from ${sender} to Group ID: ${groupId}: ${text}`);
+
+//   try {
+//     // Save the message to the database (e.g., MongoDB)
+//     const newMessage = {
+//       sender,
+//       text,
+//       createdAt: new Date(),
+//     };
+
+//     // Optionally, find and update the group to include the message
+//     const group = await Group.findById(groupId);
+//     if (!group) {
+//       socket.emit('error', { message: 'Group not found' });
+//       return;
+//     }
+//     group.messages.push(newMessage);
+//     await group.save();
+
+//     // Broadcast the message to all users in the group using groupId as the room
+//     io.to(groupId).emit('receiveGroupMessage', {
+//       ...newMessage,
+//       groupId,
+//     });
+
+//     console.log(`Message sent to Group ID ${groupId}`);
+//   } catch (error) {
+//     console.error('Error sending group message:', error);
+//     socket.emit('error', { message: 'Message could not be sent' });
+//   }
+// });
+
+socket.on("sendGroupMessage", async (data) => {
+  const { text, sender, groupId } = data;
+
+  if (!groupId || !text || !sender) {
+      console.error("Group message data is incomplete:", data);
+      return;
+  }
+
+  console.log(`Group message from ${sender} to Group ID ${groupId}: ${text}`);
+  console.log("Current rooms and members:", io.sockets.adapter.rooms);
+
+  try {
+      // Save the message to the database
+      const newMessage = {
+          sender,
+          text,
+          createdAt: new Date(),
+      };
+
       const group = await Group.findById(groupId);
       if (!group) {
-        console.error(`Group ${groupId} not found`);
-        return;
+          socket.emit("error", { message: "Group not found" });
+          return;
       }
-
       group.messages.push(newMessage);
       await group.save();
-      io.to(groupId).emit('receiveGroupMessage', { groupId, ...newMessage });
-    } catch (error) {
-      console.error('Error sending group message:', error);
-    }
-  });
+
+      // Broadcast the message to all users in the group room
+      io.to(groupId).emit("receiveGroupMessage", {
+          ...newMessage,
+          groupId,
+      });
+
+      console.log(`Message sent to Group ID ${groupId}`);
+  } catch (error) {
+      console.error("Error sending group message:", error);
+      socket.emit("error", { message: "Message could not be sent" });
+  }
+});
+
 
   socket.on('sendMessage', async (data) => {
     const { text, sender, receiver, chatId } = data;
@@ -165,8 +243,14 @@ io.on('connection', (socket) => {
   });
 
   socket.on('leaveGroup', ({ groupId, userId }) => {
-    socket.leave(groupId);
+    socket.leave(groupId); // Leave the group room
     console.log(`User ${userId} left group ${groupId}`);
+  });
+  
+  // Handle user status change (user logs in or out)
+  socket.on('userStatusChange', (userId, status) => {
+    users[userId] = status; // Update the user's status
+    io.emit('userStatusChanged', { userId, status }); // Emit status change to all clients
   });
 
   socket.on('disconnect', () => {

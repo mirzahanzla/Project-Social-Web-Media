@@ -1,9 +1,15 @@
 import mongoose from 'mongoose';
+import { v4 as uuidv4 } from 'uuid'; // If you want to use UUIDs, install uuid with `npm install uuid`
 
 const groupSchema = new mongoose.Schema(
   {
+    groupchatId: { 
+      type: String, 
+      default: () => uuidv4(), // Generate a unique ID using uuid
+      unique: true // Ensure this ID is unique
+    },
     title: { type: String, required: true },
-    admin: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Admin field
+    admin: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     photo: { type: String }, // Optional: Group profile picture
     messages: [

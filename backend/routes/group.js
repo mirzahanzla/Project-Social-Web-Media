@@ -19,9 +19,9 @@ router.put('/group/modify/:groupId', upload.single('photo'), modifyGroup);
 
 // Route for deleting a group
 router.delete('/group/delete/:groupId', deleteGroup);
+router.get('/:groupId/messages', getGroupMessagesByGroupId);
 
-// Existing routes
-router.get('/group/:groupId/messages', getGroupMessagesByGroupId);
+
 router.post('/create', upload.single('photo'), createGroup); 
 router.post('/addMember', addGroupMember); 
 router.get('/:groupId/messages', getGroupMessages); 
